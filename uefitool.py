@@ -354,52 +354,58 @@ class GUID(DB):
     
 # Base class for all UEFI file types
 class UEFIParser:
+    ConditionalDirectives = ['if', 'ifdef', 'ifndef', 'elseif', 'else', 'endif']
+
     ###################
     # Private methods #
     ###################
 
     # Class constructor
-    # fileName:          File to be parsed
-    # allowedSections:   List of allowed section names
-    # allowIncludes:     True if !include directive is supported
-    # allowedDirectives: List of allowed directives other than include (default is [] for None)
-    # sections:          Starting sections (default is [] for None)
-    #                    An array is used because multiple sections can be defined at a time
-    # process:           Starting processing state (default is True)
+    # fileName:             File to be parsed
+    # allowedSections:      List of allowed section names
+    # allowIncludes:        True if !include directive is supported
+    # allowConditionals:    True if conditional directives (!if, !ifdef, !ifndef, !else, !elseif, !endif) are supported
+    # additionalDirectives: List of allowed directives other than include and conditionals (default is [] for None)
+    # sections:             Starting sections (default is [] for None)
+    #                       An array is used because multiple sections can be defined at a time
+    # process:              Starting processing state (default is True)
     # returns nothing
-    def __init__(self, fileName, allowedSections, allowIncludes = False, allowedDirectives = [], sections = [], process = True):
+    #
+    # NOTES on handlers in child class!
+    #    Child class MAY  provide a handler for "section_<name>"    for each name in allowedSections.
+    #    "DefaultSection" is used for any section that  does not have a handler in the child class.
+    #    Child class MUST provide a handler for "directive_<name>"  for each name in additionalDirectives.
+    #    If no handler is found an error will be generated.
+    #    Child class MUST provide a hanlder for "directive_include" if allowIncludes is se to True.
+    #    If no handler is found an error will be generated.
+    #    Child class MAY  provide "onentry_<name>" handler to be called when section "name" is entered.
+    #    Child class MAY  provide "onexit_<name>"  handler to be called when section "name" is exited.
+    #    Child class MAY  provide "macro_<name>"   handler to be called when macro "name" is set.
+    #    This class provides handlers for all conditional directives.
+
+    def __init__(self, fileName, allowedSections, allowIncludes = False, allowConditionals = False, additionalDirectives = [], sections = [], process = True):
         global MacroVer
-        self.fileName            = fileName                 # Name of the file being parsed
-        self.macroVer            = MacroVer                 # Version of macros when this file was first loaded
-        self.allowedSections     = allowedSections          # Section names allowed while processing this file (only includes protion before first ".")
-        self.allowIncludes       = allowIncludes            # Boolean indicating if the "include" directive is supported or not    
-        self.allowedDirectives   = allowedDirectives        # Directives allowed in while processing this file (other than the "include" directive)    
-        self.sections            = sections                 # Current sections being processed ([] means none
-        self.process             = process                  # Current state of the coditional processing flag
-        self.hasDirectives       = bool(allowedDirectives)  # Indicates if the file supports any directives other than include
-        self.lineNumber          = 0                        # Current line being processed
-        self.commentBlock        = False                    # Indicates if currently processing a comment block
-        self.section             = None                     # Indicates the current section being processed (one of self.sections)
-        self.sectionStr          = ""                       # String representing current section (for messaging)
+        # Save given information
+        self.fileName             = fileName
+        self.allowedSections      = allowedSections
+        self.allowIncludes        = allowIncludes
+        self.allowConditionals    = allowConditionals
+        self.additionalDirectives = additionalDirectives
+        self.sections             = sections
+        self.process              = process
+        # Initialize other needed items
+        self.hasDirectives        = bool(additionalDirectives) # Indicates if the file supports any directives other than include and conditionals
+        self.lineNumber           = 0                          # Current line being processed
+        self.commentBlock         = False                      # Indicates if currently processing a comment block
+        self.section              = None                       # Indicates the current section being processed (one of self.sections)
+        self.sectionStr           = ""                         # String representing current section (for messaging)
+        self.macroVer             = MacroVer                   # Version of macros when this file was first loaded
+        # Setup conditional processiong
+        self.conditionHandled     = False                      # Indicates if current conditional has been handled
+        self.conditionalStack     = []                         # For nesting of conditionals
+        self.allowedConditionals  = []                         # Note If, Ifdef, and Ifndef are always allowed
         self.__parse__()
     
-    # Remove trailing comment starting with indicated comment character
-    # marker: comment character
-    # returns line without trailing comments
-    def __removeTrailingComment__(self, line, marker):
-        # Find the index of the first '#' character that is not inside quotes
-        parts = re.split(r"(\".*?\"|\'.*?\')", line)
-        stripped_parts = []
-        for i, part in enumerate(parts):
-            if i % 2 == 0:
-                # Part outside quotes, strip trailing comment
-                stripped_part = re.sub(r"\s*#.*$", "", part)
-                stripped_parts.append(stripped_part)
-            else:
-                # Part inside quotes, keep as is
-                stripped_parts.append(part)
-        return ''.join(stripped_parts)
-
     # Looks for and removes any comments
     # line: line on which to look for potential comments
     # returns Line with comments removed or None if entire line was a comment
@@ -419,8 +425,6 @@ class UEFIParser:
         pattern = """ \#.*|("(?:\\[\S\s]|[^"\\])*"|'(?:\\[\S\s]|[^'\\])*'|[\S\s][^"'#]*))"""
         line = re.sub(pattern, "", line)
         line = re.sub(pattern.replace('#',';'), "", line)
-        #line = self.__removeTrailingComment__(line, '#')
-        #line = self.__removeTrailingComment__(line, ';')
         return line.strip()
 
     # Looks for and handles directives
@@ -428,16 +432,16 @@ class UEFIParser:
     # returns True if line was a directive and processed, False otherwise
     def __handleDirective__(self, line):
         # Get out if this file does not support directives
-        if not self.allowIncludes and not self.hasDirectives: return False
+        if not self.allowIncludes and not self.allowConditionals and not self.hasDirectives: return False
         # Get out if line is not a directive
         if not line.startswith('!'): return False
         # Isolate directive
         items = line.split(maxsplit=1)
-        directive = items[0][1:].lower().capitalize()
+        directive = items[0][1:].lower()
         # Make sure directive is allowed
-        if (self.allowIncludes and directive == 'Include') or (directive in self.allowedDirectives):
+        if (self.allowIncludes and directive == 'include') or (self.allowConditionals and directive in self.ConditionalDirectives) or (directive in self.allowedDirectives):
             # Make sure directive has a handler
-            handler = getattr(self, f"directive{directive}", None)
+            handler = getattr(self, f"directive_{directive}", None)
             if handler and callable(handler): handler(items[1].strip() if len(items) > 1 else None)
             else: self.ReportError(f"Handler for directive not found: {directive}")
         else: self.ReportError(f"Unknown directive: {directive}")
@@ -559,6 +563,204 @@ class UEFIParser:
             # Must by a regular line
             self.__handleIndividualLine__(line)
 
+    # Handle a new conditional
+    # returns nothing
+    def __newConditional__(self):
+        # Save current conditional settings
+        self.conditionalStack.append((self.process, self.conditionHandled, self.allowedConditionals))
+        # Allowed conditionals are all of the ifs, elses and endif
+        # Inherits self.process!
+        self.conditionHandled           = False
+        self.allowedConditionals = ['Elseif', 'Else', 'Endif']
+
+    # Convert a DSC style expression to one that Python can interpret
+    # expression: Expression to be converted
+    # returns converted expression
+    def __convertExpression__(self, expression):
+        # Match string literals (format "<string>") and replace them with a placeholder (format __STRING_LITERAL<#>))
+        # This is so nothing inside of string literals is changed by this routine
+        placeholders = []
+        def replaceStringLiterals(match):
+            # Replace "FALSE" and "TRUE" with their boolean values
+            if match.group(0).upper() == '"FALSE"': return 'False'
+            if match.group(0).upper() == '"TRUE"':  return 'True'
+            # Replace string literal with a placeholder
+            placeholders.append(match.group(0))
+            return f'__STRING_LITERAL_{len(placeholders)-1}__'
+        # Look for string literals in the expression
+        expression = re.sub(r'".*?"', replaceStringLiterals, expression)
+        # Add spaces between operators and other items in the expression
+        pattern = r'(\b\w+\b|\+\+|--|->|<<=|>>=|<=|>=|==|!=|&&|\|\||\+=|-=|\*=|/=|%=|&=|\|=|\^=|<<|>>|\?|:|~|!|<|>|=|\+|\-|\*|/|%|&|\||\^|\(|\)|\[|\]|{|}|;|,|\.)'
+        expression = re.sub(pattern, r' \1 ', expression)
+        # Tokenize the expression
+        tokens = expression.split()
+        # Rebuild expressio while looping through tokens
+        expression = []
+        for token in tokens:
+            # Substitute items in conversion map (if any)
+            if token in self.ConversionMap: token = self.ConversionMap[token]
+            # Substitute items with the macro values (if appropriate)
+            elif token in Macros: token = Macros[token]
+            expression.append(token)
+        # Rebuild the expression
+        expression = " ".join(expression)
+        # Fixup auto-increment and auto-decrement operations (if any)
+        expression = re.sub(r'(\w+)\+\+', r'\g<1> += 1', expression)
+        expression = re.sub(r'(\w+)--', r'\g<1> -= 1', expression)
+        # Restore the string literals that were replaced with place holders
+        for i, placeholder in enumerate(placeholders):
+            expression = expression.replace(f'__STRING_LITERAL_{i}__', placeholder)
+        # Return converted expression
+        return expression
+
+    # Evaluata a condition
+    # kind:      Type of condition to evaluate (one of "if", "ifdef", or "ifndef")
+    # condition: Condition to evaluate
+    def __evaluateCondition__(self, kind, condition):
+        # Convert the expression to a Python expression
+        result = self.__convertExpression__(condition)
+        if Debug(SHOW_CONVERTED_CONDITIONAL): print(f"{self.lineNumber}:ConvertedCondition: {result}")
+        try:
+            # Try to interpret it
+            result = eval(result)
+        except Exception:
+            pass
+        # Handle if condition
+        if kind == 'If':
+            try:
+                # Handle an integer result
+                # NOTE: Boolean True converts to 1 and False to 0
+                result = int(result)
+                return result != 0
+            except Exception:
+                # Integer result not possible, must be a boolean
+                # Replace undefined macros with ""
+                macro_pattern = r'(__[^ \t]+_UNDEFINED__)'
+                while re.search(macro_pattern, result):
+                     match = re.search(macro_pattern, result)
+                     undefinedMacro = match.group(1)
+                     result = result.replace(f"{undefinedMacro}", '""')
+                try:
+                    # Try to interpret it
+                    result = eval(result)
+                except:
+                    pass
+                # Return result
+                return result if type(result) is bool else result.upper() == "TRUE"
+        # Handle ifdef condition
+        elif kind == 'Ifdef':
+            if type(result) == bool: return True    # In this case the eval worked so an __UNDEFINED__ macro could have existed otherwise eval would have failed
+            return '__UNDEFINED__' not in result    # Eval must have failed ... was it because of __UNDEFINED__ macro?
+        # Handle ifndef condition
+        else:
+            if type(result) == bool: return False   # In this case the eval worked so an __UNDEFINED__ macro could have existed otherwise eval would have failed
+            return '_UNDEFINED__' in result         # Eval must have failed ... was it because of __UNDEFINED__ macro?
+
+    ######################
+    # Directive handlers #
+    ######################
+
+    # Handle the If directive
+    # condition: If condition
+    # returns nothing
+    def directive_if(self, condition):
+        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
+        # if is always allowed
+        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:if {condition}")
+        self.__newConditional__()
+        if self.process:
+            # Set processing flag appropriately
+            self.process = self.conditionHandled = self.__evaluateCondition__('If', condition)
+        if Debug(SHOW_CONDITIONAL_LEVEL):
+            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+
+    # Handle the If directive
+    # condition: Ifdef condition
+    # returns nothing
+    def directive_ifdef(self, condition):
+        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
+        # ifdef is always allowed
+        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:ifdef {condition}")
+        self.__newConditional__()
+        if self.process:
+            # Set processing flag appropriately
+            self.process = self.conditionHandled = self.__evaluateCondition__('Ifdef', condition)
+        if Debug(SHOW_CONDITIONAL_LEVEL):
+            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+
+    # Handle the If directive
+    # condition: Ifndef condition
+    # returns nothing
+    def directive_ifndef(self, condition):
+        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
+        # ifndef is always allowed
+        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:ifndef {condition}")
+        self.__newConditional__()
+        if self.process:
+            # Set processing flag appropriately
+            self.process = self.conditionHandled = self.__evaluateCondition__('Ifndef', condition)
+        if Debug(SHOW_CONDITIONAL_LEVEL):
+            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+
+    # Handle the Else directive
+    # condition: Should be empty
+    # returns nothing
+    def directive_else(self, condition):
+        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
+        # Make sure else is allowed at this time
+        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:else")
+        if not "Else" in self.allowedConditionals:
+            self.ReportError("Unexpected else directive encountered.")
+        # Now that else have been encountered only ifs and endif are allowed
+        self.allowedConditionals = ['Endif']
+        # Set processing flag apprpriately
+        self.process = False    # Assume no processing
+        if bool(self.conditionalStack):
+            if self.conditionalStack[-1][0]:
+                self.process = not self.conditionHandled 
+            # else already taken care of by setting it to False above
+        else:
+            self.process = not self.conditionHandled
+        if Debug(SHOW_CONDITIONAL_LEVEL):
+            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+
+    # Handle the ElseIf directive
+    # condition: If condition
+    # returns nothing
+    def directive_elseif(self, condition):
+        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
+        # Make sure elseif is allowed at this time
+        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:elseif {condition}")
+        if not "Elseif" in self.allowedConditionals:
+            self.ReportError("Unexpected elseif directive encountered.")
+        # There is no change in allowed conditionals!
+        # Set processing flag apprpriately
+        self.process = False    # Assume no processing
+        if bool(self.conditionalStack):
+            if self.conditionalStack[-1][0]:
+                if not self.conditionHandled:
+                    self.process = self.conditionHandled = self.__evaluateCondition__('If', condition)
+                # else already taken care of by setting it to False above
+            # else already taken care of by setting it to False above
+        else:
+            self.process = self.conditionHandled = self.__evaluateCondition__('If', condition)
+        if Debug(SHOW_CONDITIONAL_LEVEL):
+            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+
+    # Handle the Endif directive
+    # condition: Should be empty
+    # returns nothing
+    def directive_endif(self, condition):
+        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
+        # Make sure elseif is allowed at this time
+        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:endif")
+        if not "Endif" in self.allowedConditionals:
+            self.ReportError("Unexpected endif directive encountered.")
+        # Set processing flag and allows Conditional to what they were for previous if level
+        self.process, self.conditionHandled, self.allowedConditionals = self.conditionalStack.pop()
+        if Debug(SHOW_CONDITIONAL_LEVEL):
+            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+
     ##################
     # Public methods #
     ##################
@@ -661,7 +863,7 @@ class ArgsParser(UEFIParser):
     # Handle the Include directive
     # line: File to be included
     # returns nothing
-    def directiveInclude(self, line):
+    def directive_include(self, line):
         def includeHandler(file):
             parser = ChipsetParser(file)            
         self.IncludeFile(line, includeHandler)
@@ -745,7 +947,7 @@ class DECParser(UEFIParser):
     # filename: File to parse
     # returns nothing
     def __init__(self, fileName):
-        super().__init__(fileName, self.DECSections, False, [], [], True)
+        super().__init__(fileName, self.DECSections)
 
     ####################
     # Section handlers #
@@ -851,7 +1053,7 @@ class INFParser(UEFIParser):
         self.protocols = []
         self.packages  = []
         for attr in INFDefines: setattr(self, attr, None)
-        super().__init__(fileName, self.INFSections, False, [], [], True)
+        super().__init__(fileName, self.INFSections)
 
     ####################
     # Section handlers #
@@ -977,7 +1179,7 @@ class DSCParser(UEFIParser):
                       'pcdsdynamichii',        'pcdsdynamicvpd',       'pcdsfeatureflag',  'pcdsfixedatbuild',
                       'pcdspatchableinmodule', 'skuids',               'userextensions',    ]
 
-    DSCDirectives = [ 'If', 'Ifdef', 'Ifndef', 'Elseif', 'Else', 'Endif', 'Error']
+    DSCDirectives = [ 'error']
 
     ConversionMap = {
         'FALSE':    'False',         # Boolean False
@@ -1000,169 +1202,13 @@ class DSCParser(UEFIParser):
     # process:  Starting conditional processing state (default is True)
     # returns nothing
     def __init__(self, fileName, sections = [], process = True):
-        # Setup conditional processiong
-        self.ifHandled           = False
-        self.conditionalStack    = []
-        self.allowedConditionals = []   ## Note If, Ifdef, and Ifndef are always allowed
         self.allowSubsections    = False
         # Call cunstructor for parent class
-        super().__init__(fileName, self.DSCSections, True, self.DSCDirectives, sections, process)
-
-    # Handle a new conditional
-    # returns nothing
-    def __newConditional__(self):
-        # Save current conditional settings
-        self.conditionalStack.append((self.process, self.ifHandled, self.allowedConditionals))
-        # Allowed conditionals are all of the ifs, elses and endif
-        # Inherits self.process!
-        self.ifHandled           = False
-        self.allowedConditionals = ['Elseif', 'Else', 'Endif']
-
-    # Convert a DSC style expression to one that Python can interpret
-    # expression: Expression to be converted
-    # returns converted expression
-    def __convertExpression__(self, expression):
-        # Match string literals (format "<string>") and replace them with a placeholder (format __STRING_LITERAL<#>))
-        # This is so nothing inside of string literals is changed by this routine
-        placeholders = []
-        def replaceStringLiterals(match):
-            # Replace "FALSE" and "TRUE" with their boolean values
-            if match.group(0).upper() == '"FALSE"': return 'False'
-            if match.group(0).upper() == '"TRUE"':  return 'True'
-            # Replace string literal with a placeholder
-            placeholders.append(match.group(0))
-            return f'__STRING_LITERAL_{len(placeholders)-1}__'
-        # Look for string literals in the expression
-        expression = re.sub(r'".*?"', replaceStringLiterals, expression)
-        # Add spaces between operators and other items in the expression
-        pattern = r'(\b\w+\b|\+\+|--|->|<<=|>>=|<=|>=|==|!=|&&|\|\||\+=|-=|\*=|/=|%=|&=|\|=|\^=|<<|>>|\?|:|~|!|<|>|=|\+|\-|\*|/|%|&|\||\^|\(|\)|\[|\]|{|}|;|,|\.)'
-        expression = re.sub(pattern, r' \1 ', expression)
-        # Tokenize the expression
-        tokens = expression.split()
-        # Rebuild expressio while looping through tokens
-        expression = []
-        for token in tokens:
-            # Substitute items in conversion map (if any)
-            if token in self.ConversionMap: token = self.ConversionMap[token]
-            # Substitute items with the macro values (if appropriate)
-            elif token in Macros: token = Macros[token]
-            expression.append(token)
-        # Rebuild the expression
-        expression = " ".join(expression)
-        # Fixup auto-increment and auto-decrement operations (if any)
-        expression = re.sub(r'(\w+)\+\+', r'\g<1> += 1', expression)
-        expression = re.sub(r'(\w+)--', r'\g<1> -= 1', expression)
-        # Restore the string literals that were replaced with place holders
-        for i, placeholder in enumerate(placeholders):
-            expression = expression.replace(f'__STRING_LITERAL_{i}__', placeholder)
-        # Return converted expression
-        return expression
-
-    # Evaluata a condition
-    # kind:      Type of condition to evaluate (one of "if", "ifdef", or "ifndef")
-    # condition: Condition to evaluate
-    def __evaluateCondition__(self, kind, condition):
-        # Convert the expression to a Python expression
-        result = self.__convertExpression__(condition)
-        if Debug(SHOW_CONVERTED_CONDITIONAL): print(f"{self.lineNumber}:ConvertedCondition: {result}")
-        try:
-            # Try to interpret it
-            result = eval(result)
-        except Exception:
-            pass
-        # Handle if condition
-        if kind == 'If':
-            try:
-                # Handle an integer result
-                # NOTE: Boolean True converts to 1 and False to 0
-                result = int(result)
-                return result != 0
-            except Exception:
-                # Integer result not possible, must be a boolean
-                # Replace undefined macros with ""
-                macro_pattern = r'(__[^ \t]+_UNDEFINED__)'
-                while re.search(macro_pattern, result):
-                     match = re.search(macro_pattern, result)
-                     undefinedMacro = match.group(1)
-                     result = result.replace(f"{undefinedMacro}", '""')
-                try:
-                    # Try to interpret it
-                    result = eval(result)
-                except:
-                    pass
-                # Return result
-                return result if type(result) is bool else result.upper() == "TRUE"
-        # Handle ifdef condition
-        elif kind == 'Ifdef':
-            if type(result) == bool: return True    # In this case the eval worked so an __UNDEFINED__ macro could have existed otherwise eval would have failed
-            return '__UNDEFINED__' not in result    # Eval must have failed ... was it because of __UNDEFINED__ macro?
-        # Handle ifndef condition
-        else:
-            if type(result) == bool: return False   # In this case the eval worked so an __UNDEFINED__ macro could have existed otherwise eval would have failed
-            return '_UNDEFINED__' in result         # Eval must have failed ... was it because of __UNDEFINED__ macro?
+        super().__init__(fileName, self.DSCSections, True, True, self.DSCDirectives, sections, process)
 
     ######################
     # Directive handlers #
     ######################
-
-    # Handle the Else directive
-    # condition: Should be empty
-    # returns nothing
-    def directiveElse(self, condition):
-        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
-        # Make sure else is allowed at this time
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:else")
-        if not "Else" in self.allowedConditionals:
-            self.ReportError("Unexpected else directive encountered.")
-        # Now that else have been encountered only ifs and endif are allowed
-        self.allowedConditionals = ['Endif']
-        # Set processing flag apprpriately
-        self.process = False    # Assume no processing
-        if bool(self.conditionalStack):
-            if self.conditionalStack[-1][0]:
-                self.process = not self.ifHandled 
-            # else already taken care of by setting it to False above
-        else:
-            self.process = not self.ifHandled
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
-
-    # Handle the ElseIf directive
-    # condition: If condition
-    # returns nothing
-    def directiveElseif(self, condition):
-        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
-        # Make sure elseif is allowed at this time
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:elseif {condition}")
-        if not "Elseif" in self.allowedConditionals:
-            self.ReportError("Unexpected elseif directive encountered.")
-        # There is no change in allowed conditionals!
-        # Set processing flag apprpriately
-        self.process = False    # Assume no processing
-        if bool(self.conditionalStack):
-            if self.conditionalStack[-1][0]:
-                if not self.ifHandled:
-                    self.process = self.ifHandled = self.__evaluateCondition__('If', condition)
-                # else already taken care of by setting it to False above
-            # else already taken care of by setting it to False above
-        else:
-            self.process = self.ifHandled = self.__evaluateCondition__('If', condition)
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
-
-    # Handle the Endif directive
-    # condition: Should be empty
-    # returns nothing
-    def directiveEndif(self, condition):
-        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
-        # Make sure elseif is allowed at this time
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:endif")
-        if not "Endif" in self.allowedConditionals:
-            self.ReportError("Unexpected endif directive encountered.")
-        # Set processing flag and allows Conditional to what they were for previous if level
-        self.process, self.ifHandled, self.allowedConditionals = self.conditionalStack.pop()
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
 
     # Handle the Error directive
     # message: Error message
@@ -1172,52 +1218,10 @@ class DSCParser(UEFIParser):
         if Debug(SHOW_ERROR_DIRECT1VE): print(f"{self.lineNumber}:error {message}")
         if self.process: self.ReportError(f"error({message})")
 
-    # Handle the If directive
-    # condition: If condition
-    # returns nothing
-    def directiveIf(self, condition):
-        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
-        # if is always allowed
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:if {condition}")
-        self.__newConditional__()
-        if self.process:
-            # Set processing flag appropriately
-            self.process = self.ifHandled = self.__evaluateCondition__('If', condition)
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
-
-    # Handle the If directive
-    # condition: Ifdef condition
-    # returns nothing
-    def directiveIfdef(self, condition):
-        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
-        # ifdef is always allowed
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:ifdef {condition}")
-        self.__newConditional__()
-        if self.process:
-            # Set processing flag appropriately
-            self.process = self.ifHandled = self.__evaluateCondition__('Ifdef', condition)
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
-
-    # Handle the If directive
-    # condition: Ifndef condition
-    # returns nothing
-    def directiveIfndef(self, condition):
-        global SHOW_CONDITIONAL_DIRECTIVES, SHOW_CONDITIONAL_LEVEL
-        # ifndef is always allowed
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES): print(f"{self.lineNumber}:ifndef {condition}")
-        self.__newConditional__()
-        if self.process:
-            # Set processing flag appropriately
-            self.process = self.ifHandled = self.__evaluateCondition__('Ifndef', condition)
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
-
     # Handle the Include directive
     # includeFile: File to be included
     # returns nothing
-    def directiveInclude(self, includeFile):
+    def directive_include(self, includeFile):
         def includeDSCFile(file):
             global DSCs, MacroVer
             if file in DSCs:
