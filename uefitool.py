@@ -73,6 +73,7 @@ DefaultStores           = {}
 DSCs                    = {}
 DECs                    = []
 INFs                    = []
+FDFs                    = []
 SupportedArchitectures  = []
 DebugLevel              = DEBUG_MINIMAL
 
@@ -355,6 +356,19 @@ class GUID(DB):
 # Base class for all UEFI file types
 class UEFIParser:
     ConditionalDirectives = ['if', 'ifdef', 'ifndef', 'elseif', 'else', 'endif']
+    NonArchSections       = ['fd', 'fv', 'userextensions']
+
+    ConversionMap = {
+        'FALSE':    'False',         # Boolean False
+        'TRUE':     'True',          # Boolean True
+        'sizeof':   'len',           # Length
+        '&&':       'and',           # Logical AND
+        '||':       'or',            # Logical OR
+        '<>':       '!=',            # Inequality
+        '=>':       '>=',            # Greater than or equal to
+        '=<':       '<=',            # Less than or equal to
+        '!':        'not',           # Logical NOT
+    }
 
     ###################
     # Private methods #
@@ -452,14 +466,23 @@ class UEFIParser:
     # returns True if supported, False otherwise
     def __sectionSupported__(self, section):
         global SupportedArchitectures, SHOW_SKIPPED_ARCHITECTURES
+        # Some sections do not have architecture limitations
+        if section[0] in self.NonArchSections:                            return True
         # Can't limit sections if supported architectures has not been set yet
-        if not bool(SupportedArchitectures):        return True
+        if not bool(SupportedArchitectures):                              return True
         # Sections that do not stipulate architecture are always supported
-        if len(section) == 1:                       return True
+        if len(section) == 1:                                             return True
         # Common section is always supported
-        if section[1] == "common":                  return True
+        if section[1] == "common":                                        return True
+        # Special processing
+        if section[1] == 'peim': section[1] = 'ia32'
+        if section[1] == 'arm':  section[1] = 'aarch64'
+        if section[1] == 'ipf':  section[1] = 'x64'
         # Check supported architectures
-        if section[1] in SupportedArchitectures:    return True
+        if section[1].upper() in SupportedArchitectures:                  return True
+        # Handle special cases
+        if section[0] == 'pcdsdynamicvpd' and section[1] == 'upd':        return True
+        if section[0] in ['sources', 'includes'] and section[1] == 'ebc': return True
         if Debug(SHOW_SKIPPED_ARCHITECTURES): print(f"{self.lineNumber}:SKIPPED - unsupported architecture")
         return False
 
@@ -477,7 +500,7 @@ class UEFIParser:
                 # Make sure section is supported archtecture
                 if self.__sectionSupported__(section):
                     handler = getattr(self, f"onexit_{section[0].lower()}", None)
-                    if handler and callable(handler): handler(section)
+                    if handler and callable(handler): handler()
                 # else handled by __sectionSupported__ method
             # Clear old sections
             self.sections.clear()
@@ -499,7 +522,7 @@ class UEFIParser:
                     if Debug(SHOW_SECTION_CHANGES): print(f"{self.lineNumber}:{sectionStr}")
                     # Call onentry section handler (if any)
                     handler = getattr(self, f"onentry_{name}", None)
-                    if handler and callable(handler): handler(items)
+                    if handler and callable(handler): handler()
                 # Else taken care of in __sectionSupported method!
                 # No need to look for handler here because some section may use the default handler
             else: self.ReportError(f"Unknown section: {section}")
@@ -876,6 +899,8 @@ class ArgsParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_hpbuildargs(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         # Look for definition (format "-D <macroName=macroValue")
         if line.startswith('-D'):
             _, line = line.split(maxsplit=1)
@@ -885,6 +910,8 @@ class ArgsParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_environmentvariables(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         # Look for definition (format "-D <macroName=macroValue")
         if line.startswith('-D'):
             _, line = line.split(maxsplit=1)
@@ -920,6 +947,8 @@ class ChipsetParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_hpbuildargs(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         # Look for definition (format "-D <macroName=macroValue")
         if line.startswith('-D'):
             _, line = line.split(maxsplit=1)
@@ -931,6 +960,51 @@ class ChipsetParser(UEFIParser):
     #    upatches
     #    snaps
     #    tagexceptions
+
+class FDFParser(UEFIParser):
+    FDFSections =   [ 'defines', 'fd', 'fv', 'rule' ]
+
+    ###################
+    # Private methods #
+    ###################
+
+    # Class constructor
+    # filename: File to parse
+    # returns nothing
+    def __init__(self, fileName):
+        global DebugLevel
+        # Call cunstructor for parent class
+        DebugLevel = DEBUG_ALL
+        super().__init__(fileName, self.FDFSections, True, True)
+
+    ####################
+    # Section handlers #
+    ####################
+
+    # Handle a line in the [Defines] section
+    # line:    Line to handle
+    # returns nothing
+    def section_defines(self,  line):
+        # Remove "DEFINE" (if found)
+        if line.startswith('DEFINE '):
+            _, line = line.split('DEFINE', maxsplit=1)
+        # Define macro!
+        self.DefineMacro(line)
+
+    ######################
+    # Directive handlers #
+    ######################
+
+    # Handle the Include directive
+    # line: File to be included
+    # returns nothing
+    def directive_include(self, line):
+        def includeHandler(file):
+            if file.lower().endswith(".dsc"):
+                dsc = DSCParser(file)
+            else:    
+                fdf = FDFParser(file)
+        self.IncludeFile(line, includeHandler)
 
 # Class for handling UEFI DEC files
 class DECParser(UEFIParser):
@@ -967,60 +1041,82 @@ class DECParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_guids(self,  line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         guid = GUID(self.section, line, self)
 
     # Handle a line in the [Includes] section
     # line:    Line to handle
     # returns nothing
     def section_includes(self,  line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         super().DefaultSection(line, "includes")
 
     # Handle a line in the [LibraryClasses] section
     # line:    Line to handle
     # returns nothing
     def section_libraryclasses(self,  line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
+        # Just in case there is some training gunk on the line!
+        line = line.split()[0]
         libraryclass = LibraryClass(self.section, line, self)
 
     # Handle a line in the [PcdsDynamic] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamic(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
  
     # Handle a line in the [PcdsDynamicEx] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicex(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsFeatureFlag] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsfeatureflag(self,  line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsFixedAtBuild] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsfixedatbuild(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsPatchableInModule] section
     # line:    Line to handle
     # returns nothing
     def section_pcdspatchableinmodule(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Ppis] section
     # line:    Line to handle
     # returns nothing
     def section_ppis(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         super().DefaultSection(line, "ppis")
 
     # Handle a line in the [Protocols] section
     # line:    Line to handle
     # returns nothing
     def section_protocols(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         super().DefaultSection(line, "protocols")
 
     # The following sections are handled by the defaut handler:
@@ -1091,24 +1187,32 @@ class INFParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_featurepcd(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [FixedPcd] section
     # line:    Line to handle
     # returns nothing
     def section_fixedpcd(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Guids] section
     # line:    Line to handle
     # returns nothing
     def section_guids(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         guid = GUID(self.section, line, self)
 
     # Handle a line in the [Includes] section
     # line:    Line to handle
     # returns nothing
     def section_includes(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         self.includes.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
@@ -1116,6 +1220,8 @@ class INFParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_libraryclasses(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         libraryclass = LibraryClass(self.section, line, self)
 
     # Handle a line in the [Packages] section
@@ -1123,6 +1229,8 @@ class INFParser(UEFIParser):
     # returns nothing
     def section_packages(self, line):
         global DECs
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         DECs.append((self.fileName, self.lineNumber, line))
         self.packages.append(line)
         if Debug(SHOW_PACKAGES_ENTRIES): print(f"{self.lineNumber}:{line}")
@@ -1131,24 +1239,32 @@ class INFParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_patchpcd(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Pcd] section
     # line:    Line to handle
     # returns nothing
     def section_pcd(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdEx] section
     # line:    Line to handle
     # returns nothing
     def section_pcdex(self,  line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Ppis] section
     # line:    Line to handle
     # returns nothing
     def section_ppis(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         self.ppis.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
@@ -1156,6 +1272,8 @@ class INFParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_protocols(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         self.protocols.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
@@ -1163,6 +1281,8 @@ class INFParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_sources(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         self.sources.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
@@ -1180,18 +1300,6 @@ class DSCParser(UEFIParser):
                       'pcdspatchableinmodule', 'skuids',               'userextensions',    ]
 
     DSCDirectives = [ 'error']
-
-    ConversionMap = {
-        'FALSE':    'False',         # Boolean False
-        'TRUE':     'True',          # Boolean True
-        'sizeof':   'len',           # Length
-        '&&':       'and',           # Logical AND
-        '||':       'or',            # Logical OR
-        '<>':       '!=',            # Inequality
-        '=>':       '>=',            # Greater than or equal to
-        '=<':       '<=',            # Less than or equal to
-        '!':        'not',           # Logical NOT
-    }
 
     ###################
     # Private methods #
@@ -1255,6 +1363,8 @@ class DSCParser(UEFIParser):
     # returns nothing
     def section_components(self,  line):
         global INFs
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         if self.allowSubsections:
             if line.endswith("}"):
                 self.allowSubsections = False
@@ -1280,6 +1390,7 @@ class DSCParser(UEFIParser):
             self.allowSubsections = True
             self.subsections      = None
         # Include the file
+        line = line.replace('"', '')
         INFs.append((self.fileName, self.lineNumber, line))
         if Debug(SHOW_COMPONENT_ENTRIES): print(f"{self.lineNumber}:{line}")
 
@@ -1287,6 +1398,8 @@ class DSCParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_defaultstores(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         store = DefaultStore(self.section, line, self)
 
     # Handle a line in the [Defines] section
@@ -1303,78 +1416,104 @@ class DSCParser(UEFIParser):
     # line:    Line to handle
     # returns nothing
     def section_pcdsfeatureflag(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsFixedAtBuild] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsfixedatbuild(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsPatchableInModule] section
     # line:    Line to handle
     # returns nothing
     def section_pcdspatchableinmodule(self,  line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamic] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamic(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicEx] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicex(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicDefault] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicdefault(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicHII] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamichii(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicHII] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicvpd(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicExDefault] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicexdefault(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicExHii] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicexhii(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicExVpd] section
     # line:    Line to handle
     # returns nothing
     def section_pcdsdynamicexvpd(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [SkuIds] section
     # line:    Line to handle
     # returns nothing
     def section_skuids(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         sku = SkuId(self.section, line, self)
 
     # Handle a line in the [Libraries] section
     # line:    Line to handle
     # returns nothing
     def section_libraries(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         super().DefaultSection(line, "libraries")
 
     # Handle a line in the [LibraryClasses] section
@@ -1382,8 +1521,10 @@ class DSCParser(UEFIParser):
     # returns nothing
     def section_libraryclasses(self, line):
         global INFs
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
         libraryclass = LibraryClass(self.section, line, self)
-        INFs.append((self.fileName, self.lineNumber, libraryclass.path))
+        INFs.append((self.fileName, self.lineNumber, libraryclass.path.replace('"', '')))
 
     # The following sections are handled by the defaut handler:
     #    buildoptions
@@ -1394,7 +1535,7 @@ class DSCParser(UEFIParser):
     ##################
     def macro_SUPPORTED_ARCHITECTURES(self, value):
         global SupportedArchitectures
-        SupportedArchitectures = value.replace('"', '').split("|")
+        SupportedArchitectures = value.upper().replace('"', '').split("|")
         if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
 
 class PlatformInfo:
@@ -1414,7 +1555,7 @@ class PlatformInfo:
         self.__findBase__()
         self.__getPaths__()
         self.__getHpPlatformPkg__()
-        self.__processPlatform()
+        self.__processPlatform__()
 
     # Finds the base directory of the platform tree
     # returns nothing
@@ -1486,11 +1627,11 @@ class PlatformInfo:
 
     # Process a platform and output the results
     # returns nothing
-    def __processPlatform(self):
+    def __processPlatform__(self):
         global DSCs, DECs, INFs, BasePath, Macros, PCDs
         # Parse the args file
-        print(f"Parsing Args file:")
-        print(f"------------------")
+        print(f"Parsing Args files:")
+        print(f"-------------------")
         args = ArgsParser(self.argsFile)
 
         # Parse the DSC files
@@ -1501,7 +1642,7 @@ class PlatformInfo:
 
         # Parse the INF files
         print(f"Parsing INF files:")
-        print(f"-----------------")
+        print(f"------------------")
         infs = {}
         for name, number, path in INFs:
             file               = FindPath(path)
@@ -1517,7 +1658,7 @@ class PlatformInfo:
 
         # Parse the DEC files
         print(f"Parsing DEC files:")
-        print(f"-----------------")
+        print(f"------------------")
         decs = {}
         for name, number, path in DECs:
             file               = FindPath(path)
@@ -1528,6 +1669,12 @@ class PlatformInfo:
                 if Debug(SHOW_SKIPPED_DECS): print(f"DEC @{number} in {name} skipped because it was previosly parsed")
             else:
                 decs[file] = DECParser(file)
+
+        # Parse the DSC files
+        # This will generate a list of DEC and INF files to parse
+        print(f"Parsing FDF files:")
+        print(f"------------------")
+        fdfFile = FDFParser(self.fdfFile)
 
         # Show results
         print(f"RESULTS:")
