@@ -75,7 +75,7 @@ DECs                    = []
 INFs                    = []
 FDFs                    = []
 SupportedArchitectures  = []
-DebugLevel              = DEBUG_MINIMAL
+DebugLevel              = DEBUG_ALL
 
 # Debug output checker
 # check: Debug item to check
@@ -356,7 +356,7 @@ class GUID(DB):
 # Base class for all UEFI file types
 class UEFIParser:
     ConditionalDirectives = ['if', 'ifdef', 'ifndef', 'elseif', 'else', 'endif']
-    NonArchSections       = ['fd', 'fv', 'userextensions']
+    AllArchitectures      = ['AARCH32', 'AARCH64', 'IA32', 'RISCV64', 'X64']
 
     ConversionMap = {
         'FALSE':    'False',         # Boolean False
@@ -466,23 +466,15 @@ class UEFIParser:
     # returns True if supported, False otherwise
     def __sectionSupported__(self, section):
         global SupportedArchitectures, SHOW_SKIPPED_ARCHITECTURES
-        # Some sections do not have architecture limitations
-        if section[0] in self.NonArchSections:                            return True
-        # Can't limit sections if supported architectures has not been set yet
-        if not bool(SupportedArchitectures):                              return True
         # Sections that do not stipulate architecture are always supported
-        if len(section) == 1:                                             return True
-        # Common section is always supported
-        if section[1] == "common":                                        return True
-        # Special processing
-        if section[1] == 'peim': section[1] = 'ia32'
-        if section[1] == 'arm':  section[1] = 'aarch64'
-        if section[1] == 'ipf':  section[1] = 'x64'
-        # Check supported architectures
-        if section[1].upper() in SupportedArchitectures:                  return True
-        # Handle special cases
-        if section[0] == 'pcdsdynamicvpd' and section[1] == 'upd':        return True
-        if section[0] in ['sources', 'includes'] and section[1] == 'ebc': return True
+        if len(section) < 2:                  return True
+        arch = section[1].upper()
+        # Patchup arch
+        if   arch == 'peim': arch = 'IA32'
+        elif arch == 'arm':  arch = 'AARCH64'
+        elif arch == 'ipf':  arch = 'X64'
+        if not arch in self.AllArchitectures: return True
+        if arch in SupportedArchitectures:    return True
         if Debug(SHOW_SKIPPED_ARCHITECTURES): print(f"{self.lineNumber}:SKIPPED - unsupported architecture")
         return False
 
@@ -972,9 +964,7 @@ class FDFParser(UEFIParser):
     # filename: File to parse
     # returns nothing
     def __init__(self, fileName):
-        global DebugLevel
         # Call cunstructor for parent class
-        DebugLevel = DEBUG_ALL
         super().__init__(fileName, self.FDFSections, True, True)
 
     ####################
