@@ -1348,7 +1348,7 @@ class DSCParser(UEFIParser):
         self.IncludeFile(includeFile, includeDSCFile)
 
     ####################
-    # Section handlers #
+    # Special handlers #
     ####################
 
     # [Components] on entry handler
@@ -1365,6 +1365,15 @@ class DSCParser(UEFIParser):
         if self.allowSubsections:
             self.ReportError("Component section missing closing brace (})")
         if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: component section exit detected")
+
+    def macro_SUPPORTED_ARCHITECTURES(self, value):
+        global SupportedArchitectures
+        SupportedArchitectures = value.upper().replace('"', '').split("|")
+        if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
+
+    ####################
+    # Section handlers #
+    ####################
 
     # Handle a line in the [Components] section
     # line:    Line to handle
@@ -1537,14 +1546,6 @@ class DSCParser(UEFIParser):
     # The following sections are handled by the defaut handler:
     #    buildoptions
     #    userextensions
-
-    ##################
-    # Macro handlers #
-    ##################
-    def macro_SUPPORTED_ARCHITECTURES(self, value):
-        global SupportedArchitectures
-        SupportedArchitectures = value.upper().replace('"', '').split("|")
-        if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
 
 class PlatformInfo:
     ###################
