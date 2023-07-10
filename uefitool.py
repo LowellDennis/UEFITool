@@ -299,6 +299,7 @@ class PCD(DB):
     # object:   Object in which PCD is found
     # returns nothing
     def __init__(self, section, info, object):
+        self.object = object
         global PCDs, SHOW_PCD_ENTRIES
         if object.fileName.endswith('.dsc'):
             self.type = "DSC"
@@ -306,14 +307,15 @@ class PCD(DB):
             self.type = "DEC"
         else:
             self.type = "INF"
-        super().__init__(section, info, object, "name", PCDs, ["type", "guid", "name", "value", "kind", "token"], SHOW_PCD_ENTRIES)
+        super().__init__(section, info, object, "name", PCDs, ["type", "name", "index", "value", "kind", "token"], SHOW_PCD_ENTRIES)
 
     # Parse PCD info line (format "name|path")
     # info: line of info to parse (format name or guid.name[|value[|type[|token]]])
     # returns True if info parsed without error, False otherwise   
     def parseInfo(self, info):
+        old = info
         # Init items that may not be specified
-        self.guid      = self.value = self.kind = self.token = None
+        self.guid      = self.index = self.value = self.kind = self.token = None
         # Remove any trailing garbage
         info           = re.findall("(?:\".*?\"|\S)+", info)[0]
         # Split into GUID and name (if appropriate, might be just name)
@@ -325,7 +327,9 @@ class PCD(DB):
             # Look for value, type, token
             items      = items[1].strip().split("|")
             # Get name
-            self.name  = items[0]
+            parts      = items[0].strip().split('.', maxsplit = 1)
+            self.name  = parts[0]
+            if len(parts) > 1: self.index = parts[1].strip()
             length     = len(items)
             # Get remaining items (if any)
             if length > 1:
@@ -1705,14 +1709,6 @@ class PlatformInfo:
         print(f"List of Macros:")
         print(f"---------------")
         for macro in Macros: print(f"{macro}={Macros[macro]}")
-        print(f"List of PCDs:")
-        print(f"-------------")
-        for pcds in PCDs:
-            print(f"{pcds}:")
-            for pcd in PCDs[pcds]:
-                print(f"    {pcd.line}:{pcd.file}")
-                print(f"        Section: [{{self.__getSection__(pcd)}]")
-                print(f"        Value: {pcd.value}\n        Kind: {pcd.kind}\n        Token: {pcd.token}")
         print(f"List of LibraryClasses:")
         print(f"-----------------------")
         for lcs in LibraryClasses:
@@ -1745,6 +1741,29 @@ class PlatformInfo:
                 print(f"    {df.line}:{df.file}")
                 print(f"        Section: [{self.__getSection__(df)}]")
                 print(f"        Value: {df.value}")
+        print(f"List of PCDs:")
+        print(f"-------------")
+        for pcds in PCDs:
+            if pcds == "PcdMemSrvidMap" or pcds == "Signature":
+                pass
+            print(f"{pcds}:")
+            definition = "        Definition: None"
+            for pcd in PCDs[pcds]:
+                # Look for definjitions
+                if pcd.type == "DEC":
+                    print(f"        Definition: {pcd.line}:{pcd.file}")
+                    print(f"            Section: [{self.__getSection__(pcd)}]")
+                    print(f"            Default Value: {pcd.value}\n            Kind: {pcd.kind}\n            Token: {pcd.token}")
+                    definition = None
+                # Look for overrides
+                elif pcd.type == "DSC" and pcd.value != None: 
+                    print(f"        Override: {pcd.line}:{pcd.file}")
+                    print(f"            Section: [{self.__getSection__(pcd)}]")
+                    print(f"            New Value: {pcd.value}")
+                else:
+                    print(f"        Reference {pcd.line}:{pcd.file}")
+                    print(f"            Section: [{self.__getSection__(pcd)}]")
+            if definition != None: print(f"{definition}")
         print(f"List of INFs:")
         print(f"-------------")
         for inf in infs:
