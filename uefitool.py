@@ -1628,6 +1628,17 @@ class PlatformInfo:
                 Error('Unable to determine value for HP_PLATFORM_PKG ... exiting!')
                 sys.exit(4)
         SetMacro("HP_PLATFORM_PKG", hpPlatformPkg)
+    
+    # Get section string
+    # object: Item from which to get the section string
+    # returns section[.arch[.extra]]
+    def __getSection__(self, object):
+        value = f"{object.section}"
+        if object.arch != None:
+            value += f".{object.arch}"
+            if object.extra != None:
+                value += f".{object.extra}"
+        return value
 
     # Process a platform and output the results
     # returns nothing
@@ -1700,7 +1711,7 @@ class PlatformInfo:
             print(f"{pcds}:")
             for pcd in PCDs[pcds]:
                 print(f"    {pcd.line}:{pcd.file}")
-                print(f"        Section: [{pcd.section}.{pcd.arch}.{pcd.extra}]")
+                print(f"        Section: [{{self.__getSection__(pcd)}]")
                 print(f"        Value: {pcd.value}\n        Kind: {pcd.kind}\n        Token: {pcd.token}")
         print(f"List of LibraryClasses:")
         print(f"-----------------------")
@@ -1708,7 +1719,7 @@ class PlatformInfo:
             print(f"{lcs}:")
             for lc in LibraryClasses[lcs]:
                 print(f"    {lc.line}:{lc.file}")
-                print(f"        Section: [{lc.section}.{lc.arch}.{lc.extra}]")
+                print(f"        Section: [{self.__getSection__(lc)}]")
                 print(f"        Path: {lc.path}")
         print(f"List of GUIDS:")
         print(f"--------------")
@@ -1716,7 +1727,7 @@ class PlatformInfo:
             print(f"{guids}:")
             for guid in GUIDs[guids]:
                 print(f"    {guid.line}:{guid.file}")
-                print(f"        Section: [{guid.section}.{guid.arch}.{guid.extra}]")
+                print(f"        Section: [{self.__getSection__(guid)}]")
                 print(f"        Value: {guid.value}")
         print(f"List of SkuIds:")
         print(f"---------------")
@@ -1724,7 +1735,7 @@ class PlatformInfo:
             print(f"{skuids}:")
             for skuid in SkuIds[skuids]:
                 print(f"    {skuid.line}:{skuid.file}")
-                print(f"        Section: [{skuid.section}.{skuid.arch}.{skuid.extra}]")
+                print(f"        Section: [{self.__getSection__(skuid)}]")
                 print(f"        Value: {skuid.value}")
         print(f"List of DefaultStores:")
         print(f"---------------------")
@@ -1732,7 +1743,7 @@ class PlatformInfo:
             print(f"{dfs}:")
             for df in DefaultStores[dfs]:
                 print(f"    {df.line}:{df.file}")
-                print(f"        Section: [{df.section}.{df.arch}.{df.extra}]")
+                print(f"        Section: [{self.__getSection__(df)}]")
                 print(f"        Value: {df.value}")
         print(f"List of INFs:")
         print(f"-------------")
