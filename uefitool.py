@@ -1725,33 +1725,28 @@ class PlatformInfo:
             inf = infs[inf]
             for i in range(0, len(inf.reference)):
               print(f"    Reference: {inf.reference[i][1]}:{inf.reference[i][0]}")
-            print(f"    Defines: [")
+            print(f"    Defines:")
             for attr in INFDefines:
                 value = getattr(inf, attr, None)
                 if value: print(f"        {attr}: {value}")
             for define in inf.defines:
                 print(f"        {define}: {inf.defines[define]}")
-            print(f"    ]")
             if bool(inf.includes):
-                print(f"    Includes: [")
+                print(f"    Includes:")
                 for include in inf.includes:
                     print(f"        {include}")
-                print(f"    ]")
             if bool(inf.sources):
-                print(f"    Sources: [")
+                print(f"    Sources:")
                 for source in inf.sources:
                     print(f"        {source}")
-                print(f"    ]")
             if bool(inf.ppis):
-                print(f"    PPIs: [")
+                print(f"    PPIs:")
                 for ppi in inf.ppis:
                     print(f"        {ppi}")
-                print(f"    ]")
             if bool(inf.protocols):
-                print(f"    Protocols: [")
+                print(f"    Protocols:")
                 for protocol in inf.protocols:
                     print(f"        {protocol}")
-                print(f"    ]")
             if bool(inf.depex): print(f"    DepEx: {inf.depex}")
 
 # Indicate platform to be processed
