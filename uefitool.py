@@ -308,6 +308,8 @@ class PCD(DB):
     def parseInfo(self, info):
         # Init items that may not be specified
         self.guid      = self.value = self.kind = self.token = None
+        # Remove any trailing garbage
+        info           = re.findall("(?:\".*?\"|\S)+", info)[0]
         # Split into GUID and name (if appropriate, might be just name)
         items          = info.split(".", maxsplit=1)
         if len(items) > 1:
