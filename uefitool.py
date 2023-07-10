@@ -198,7 +198,9 @@ class DB:
         if Debug(debug):
             msg = f"{object.lineNumber}:{object.sectionStr}"
             for item in items:
-                msg = msg + f"{item}={getattr(self, item)} "
+                value = getattr(self, item)
+                if not value == None:
+                    msg = msg + f"{item}={getattr(self, item)} "
             print(msg.rstrip())
 
 # Class for a DefaultStores entries
