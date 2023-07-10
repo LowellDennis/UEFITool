@@ -1642,7 +1642,9 @@ class PlatformInfo:
             if file in infs:
                 if Debug(SHOW_SKIPPED_INFS): print(f"INF @{number} in {name} skipped because it was previosly parsed")
                 inf = infs[file]
-                inf.reference.append((name, number))
+                # Only add reference if it is not already there
+                if not (name, number) in inf.reference:
+                    inf.reference.append((name, number))
             else:
                 infs[file] = INFParser(file, name, number)
 
