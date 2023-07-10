@@ -300,7 +300,13 @@ class PCD(DB):
     # returns nothing
     def __init__(self, section, info, object):
         global PCDs, SHOW_PCD_ENTRIES
-        super().__init__(section, info, object, "name", PCDs, ["guid", "name", "value", "kind", "token"], SHOW_PCD_ENTRIES)
+        if object.fileName.endswith('.dsc'):
+            self.type = "DSC"
+        elif object.fileName.endswith('dec'):
+            self.type = "DEC"
+        else:
+            self.type = "INF"
+        super().__init__(section, info, object, "name", PCDs, ["type", "guid", "name", "value", "kind", "token"], SHOW_PCD_ENTRIES)
 
     # Parse PCD info line (format "name|path")
     # info: line of info to parse (format name or guid.name[|value[|type[|token]]])
