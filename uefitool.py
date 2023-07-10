@@ -164,6 +164,10 @@ def SetSectionAndFileInfo(self, section, object):
 # returns nothing
 def Add2DB(db, name, entry):
     if name in db:
+        for item in db[name]:
+            if item.file == entry.file:
+                if item.line == entry.line:
+                    return
         db[name].append(entry)
     else:
         db[name] = [entry]
