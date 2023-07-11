@@ -216,6 +216,7 @@ class DefaultStore(DB):
     # returns nothing
     def __init__(self, section, info, object):
         global DefaultStores, SHOW_DEFAULT_STORE_ENTRIES
+        # Call cunstructor for parent class
         super().__init__(section, info, object, "id", DefaultStores, ["id", "value"], SHOW_DEFAULT_STORE_ENTRIES)
 
     # Parse DefaultStore info line (format "value|id")
@@ -245,6 +246,7 @@ class SkuId(DB):
     # returns nothing
     def __init__(self, section, info, object):
         global SkuIds, SHOW_SKUID_ENTRIES
+        # Call cunstructor for parent class
         super().__init__(section, info, object, "id", SkuIds, ["id", "value"], SHOW_SKUID_ENTRIES)
 
     # Parse SkuId info line (format "value|id")
@@ -274,6 +276,7 @@ class LibraryClass(DB):
     # returns nothing
     def __init__(self, section, info, object):
         global LibraryClasses, SHOW_LIBRARY_CLASS_ENTRIES
+        # Call cunstructor for parent class
         super().__init__(section, info, object, "name", LibraryClasses, ["name", "path"], SHOW_LIBRARY_CLASS_ENTRIES)
 
     # Parse LibraryClass info line (format "name[|path]")
@@ -307,6 +310,7 @@ class PCD(DB):
             self.type = "DEC"
         else:
             self.type = "INF"
+        # Call cunstructor for parent class
         super().__init__(section, info, object, "name", PCDs, ["type", "name", "index", "value", "kind", "token"], SHOW_PCD_ENTRIES)
 
     # Parse PCD info line (format "name|path")
@@ -357,6 +361,7 @@ class GUID(DB):
     # returns nothing
     def __init__(self, section, info, object):
         global GUIDs, SHOW_GUID_ENTRIES
+        # Call cunstructor for parent class
         super().__init__(section, info, object, "name", GUIDs, ["name", "value"], SHOW_GUID_ENTRIES)
 
     # Parse GUID info line (format "name|path")
@@ -1029,6 +1034,7 @@ class DECParser(UEFIParser):
     # filename: File to parse
     # returns nothing
     def __init__(self, fileName):
+        # Call cunstructor for parent class
         super().__init__(fileName, self.DECSections)
 
     ####################
@@ -1157,6 +1163,7 @@ class INFParser(UEFIParser):
         self.protocols = []
         self.packages  = []
         for attr in INFDefines: setattr(self, attr, None)
+        # Call cunstructor for parent class
         super().__init__(fileName, self.INFSections)
 
     ####################
