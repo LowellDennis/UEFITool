@@ -149,13 +149,10 @@ def FindPath(partial):
 # returns nothing
 def SetSectionAndFileInfo(self, section, object):
     # Initialize section data
-    self.section = section[0]
-    length       = len(section)
-    self.arch    = None if length < 2 else section[1]
-    self.extra   = None if length < 3 else section[2]
+    self.section    = section
     # Initialize file data
-    self.file    = object.fileName
-    self.line    = object.lineNumber
+    self.fileName   = object.fileName
+    self.lineNumber = object.lineNumber
 
 # Add an entry to the database
 # db:    Database to which to add entry
@@ -165,12 +162,24 @@ def SetSectionAndFileInfo(self, section, object):
 def Add2DB(db, name, entry):
     if name in db:
         for item in db[name]:
-            if item.file == entry.file:
-                if item.line == entry.line:
+            if item.fileName == entry.fileName:
+                if item.lineNumber == entry.lineNumber:
                     return
         db[name].append(entry)
     else:
         db[name] = [entry]
+
+# Get section string
+# object: Item from which to get the section string
+# returns section[.arch[.extra]]
+def GetSection(section):
+    value  = f"[{section[0]}"
+    length = len(section)
+    if length > 1:
+        value += f".{section[1]}"
+        if length > 2:
+            value += f".{section[2]}"
+    return value + ']'
 
 # Class for a database entries
 class DB:
@@ -533,7 +542,7 @@ class UEFIParser:
             if name in self.allowedSections:
                 # Make sure architecture is supported
                 if self.__sectionSupported__(items):
-                    sectionStr = '[' + '.'.join(items) + ']'
+                    sectionStr = GetSection(items)
                     if Debug(SHOW_SECTION_CHANGES): print(f"{self.lineNumber}:{sectionStr}")
                     # Call onentry section handler (if any)
                     handler = getattr(self, f"onentry_{name}", None)
@@ -553,7 +562,7 @@ class UEFIParser:
             for self.section in self.sections:
                 # Make sure architecture is supported
                 if self.__sectionSupported__(self.section):
-                    self.sectionStr = '[' + '.'.join(self.section) + ']'
+                    self.sectionStr = GetSection(self.section)
                     handler = getattr(self, f"section_{self.section[0]}", None)
                     if handler and callable(handler): handler(line)
                     else:                             self.DefaultSection(line, self.section[0])
@@ -1314,8 +1323,6 @@ class DSCParser(UEFIParser):
                       'pcdsdynamichii',        'pcdsdynamicvpd',       'pcdsfeatureflag',  'pcdsfixedatbuild',
                       'pcdspatchableinmodule', 'skuids',               'userextensions',    ]
 
-    DSCDirectives = [ 'error']
-
     ###################
     # Private methods #
     ###################
@@ -1327,7 +1334,7 @@ class DSCParser(UEFIParser):
     def __init__(self, fileName, sections = [], process = True):
         self.allowSubsections    = False
         # Call cunstructor for parent class
-        super().__init__(fileName, self.DSCSections, True, True, self.DSCDirectives, sections, process)
+        super().__init__(fileName, self.DSCSections, True, True, ['error'], sections, process)
 
     ######################
     # Directive handlers #
@@ -1641,17 +1648,6 @@ class PlatformInfo:
                 sys.exit(4)
         SetMacro("HP_PLATFORM_PKG", hpPlatformPkg)
     
-    # Get section string
-    # object: Item from which to get the section string
-    # returns section[.arch[.extra]]
-    def __getSection__(self, object):
-        value = f"{object.section}"
-        if object.arch != None:
-            value += f".{object.arch}"
-            if object.extra != None:
-                value += f".{object.extra}"
-        return value
-
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
@@ -1722,32 +1718,32 @@ class PlatformInfo:
         for lcs in LibraryClasses:
             print(f"{lcs}:")
             for lc in LibraryClasses[lcs]:
-                print(f"    {lc.line}:{lc.file}")
-                print(f"        Section: [{self.__getSection__(lc)}]")
+                print(f"    {lc.lineNumber}:{lc.fileName}")
+                print(f"        Section: {GetSection(lc.section)}")
                 print(f"        Path: {lc.path}")
         print(f"List of GUIDS:")
         print(f"--------------")
         for guids in GUIDs:
             print(f"{guids}:")
             for guid in GUIDs[guids]:
-                print(f"    {guid.line}:{guid.file}")
-                print(f"        Section: [{self.__getSection__(guid)}]")
+                print(f"    {guid.lineNumber}:{guid.fileName}")
+                print(f"        Section: {GetSection(guid.section)}")
                 print(f"        Value: {guid.value}")
         print(f"List of SkuIds:")
         print(f"---------------")
         for skuids in SkuIds:
             print(f"{skuids}:")
             for skuid in SkuIds[skuids]:
-                print(f"    {skuid.line}:{skuid.file}")
-                print(f"        Section: [{self.__getSection__(skuid)}]")
+                print(f"    {skuid.lineNumber}:{skuid.fileName}")
+                print(f"        Section: {GetSection(skuid.section)}")
                 print(f"        Value: {skuid.value}")
         print(f"List of DefaultStores:")
         print(f"---------------------")
         for dfs in DefaultStores:
             print(f"{dfs}:")
             for df in DefaultStores[dfs]:
-                print(f"    {df.line}:{df.file}")
-                print(f"        Section: [{self.__getSection__(df)}]")
+                print(f"    {df.lineNumber}:{df.fileName}")
+                print(f"        Section: {GetSection(df.section)}")
                 print(f"        Value: {df.value}")
         print(f"List of PCDs:")
         print(f"-------------")
@@ -1759,18 +1755,18 @@ class PlatformInfo:
             for pcd in PCDs[pcds]:
                 # Look for definjitions
                 if pcd.type == "DEC":
-                    print(f"        Definition: {pcd.line}:{pcd.file}")
-                    print(f"            Section: [{self.__getSection__(pcd)}]")
+                    print(f"        Definition: {pcd.lineNumber}:{pcd.fileName}")
+                    print(f"            Section: {GetSection(pcd.section)}")
                     print(f"            Default Value: {pcd.value}\n            Kind: {pcd.kind}\n            Token: {pcd.token}")
                     definition = None
                 # Look for overrides
                 elif pcd.type == "DSC" and pcd.value != None: 
-                    print(f"        Override: {pcd.line}:{pcd.file}")
-                    print(f"            Section: [{self.__getSection__(pcd)}]")
+                    print(f"        Override: {pcd.lineNumber}:{pcd.fileName}")
+                    print(f"            Section: {GetSection(pcd.section)}")
                     print(f"            New Value: {pcd.value}")
                 else:
-                    print(f"        Reference {pcd.line}:{pcd.file}")
-                    print(f"            Section: [{self.__getSection__(pcd)}]")
+                    print(f"        Reference {pcd.lineNumber}:{pcd.fileName}")
+                    print(f"            Section: {GetSection(pcd.section)}")
             if definition != None: print(f"{definition}")
         print(f"List of INFs:")
         print(f"-------------")
