@@ -11,8 +11,9 @@ import sys
 # Constants
 
 # Regular Expressions
-reBuildArgs = r'-D([^=$]+)(=([^$]+))?$'                                                         # Format "-D macro[=[value]]", group(2)=macro, group(4)=value
-reDefine    = r'^([dD][eE][fF][iI][nN][eE])?([ \t]+)?([^= \t]+)([ \t]+)?=([ \t]+)?([^$]+)?$'    # Format "[DEFINE] macro = value", group(1)=DEFINE, group(3)=macro, group(6)=value
+reEquate    = r'^([^= \t]+)([ \t]+)?=([ \t]+)?([^$]+)?$'                                        # Format "macro = value", group(1)=macro, group(3)=value OPTIONAL
+reBuildArgs = r'^-D([ \t]+)([^= \t]+)([ \t]+)?(=([ \t]+)?([^$]+)?)?$'                           # Format "-D macro[ = [value]]", group(2)=macro, group(6)=value OPTIONAL
+reDefine    = r'^([dD][eE][fF][iI][nN][eE])?([ \t]+)?([^= \t]+)([ \t]+)?=([ \t]+)?([^$]+)?$'    # Format "[DEFINE] macro = value", group(1)=DEFINE, group(3)=macro, group(6)=value OPTIONAL
 
 # Items defined in the [Defines] section of an INF file
 INFDefines = [
@@ -895,7 +896,7 @@ class UEFIParser:
 
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
 class ArgsParser(UEFIParser):                      # regularExpression
-    BuildArgsSections = { 'environmentvariables':    reBuildArgs,
+    BuildArgsSections = { 'environmentvariables':    reEquate,
                           'hpbuildargs':             reBuildArgs,
                           'pythonbuildfailscripts':  None,
                           'pythonprebuildscripts':   None,
@@ -936,13 +937,12 @@ class ArgsParser(UEFIParser):                      # regularExpression
     # returns nothing
     def section_environmentvariables(self, line, match):
         # Handle case where match is no good
-        if match == None:
+        if match == None or match.group(1) == None:
             self.ReportError(f'Invalid environmentvariables format : {line}')
             return
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        value=match(3).split(' //')[0].strip()
-        if value == "": value = "TRUE"
-        self.DefineMacro(match.groups(1).strip(), value)
+        # Handle case where value is omitted (also where C style cooment is uses erroneously)
+        value = "" if match.group(3) == None else match.group(3).split(' //')[0].strip() 
+        self.DefineMacro(match.groups(1), value)
 
     # Handle a line in the [HpBuildArgs] section
     # line:  Contents of line
@@ -950,11 +950,12 @@ class ArgsParser(UEFIParser):                      # regularExpression
     # returns nothing
     def section_hpbuildargs(self, line, match):
         # Handle case where match is no good
-        if match == None:
+        if match == None or match.group(1) == None:
             self.ReportError(f'Invalid hpbuildargs format : {line}')
             return
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        self.DefineMacro(match.group(1).strip(), match.group(3).split(' //')[0].strip())
+        # Handle case where C style cooment is uses erroneously
+        value = "" if match.group(6) == None else match.group(6).split(' //')[0].strip()
+        self.DefineMacro(match.group(2).strip(), value)
 
     # The following sections are handled by the defaut handler:
     #     pythonbuildfailscripts
@@ -993,11 +994,12 @@ class ChipsetParser(UEFIParser):          # regularExpression
     # returns nothing
     def section_hpbuildargs(self, line, match):
         # Handle case where match is no good
-        if match == None:
-            self.ReportError('Invalid hpbuildargs format : {line}')
+        if match == None or match.group(1) == None:
+            self.ReportError(f'Invalid hpbuildargs format : {line}')
             return
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        self.DefineMacro(match.group(1).strip(), match.group(3).split(' //')[0].strip())
+        # Handle case where C style cooment is uses erroneously
+        value = "" if match.group(6) == None else match.group(6).split(' //')[0].strip()
+        self.DefineMacro(match.group(2).strip(), value)
 
     # The following sections are handled by the defaut handler:
     #    binaries
@@ -1049,10 +1051,12 @@ class FDFParser(UEFIParser): # regularExpression
     # returns nothing
     def section_defines(self, line, match):
         # Handle case where match is no good
-        if match == None:
+        if match == None or match.group(3) == None:
             self.ReportError(f'Invalid defines format : {line}')
             return
-        self.DefineMacro(match.group(1).strip(), match.group(3).strip())
+        # Handle case where value is omitted
+        value = "" if match.group(6) == None else match.group(6)
+        self.DefineMacro(match.group(3).strip(), value)
 
     # The following sections are handled by the defaut handler:
     #    fd
@@ -1096,10 +1100,12 @@ class DECParser(UEFIParser):               # regularExpression
     # returns nothing
     def section_defines(self, line, match):
         # Handle case where match is no good
-        if match == None:
+        if match == None or match.group(3) == None:
             self.ReportError(f'Invalid defines format : {line}')
             return
-        self.DefineMacro(match.group(3).strip(), match.group(6).strip())
+        # Handle case where value is omitted
+        value = "" if match.group(6) == None else match.group(6)
+        self.DefineMacro(match.group(3).strip(), value)
 
     # Handle a line in the [Guids] section
     # line:  Contents of line
@@ -1250,15 +1256,18 @@ class INFParser(UEFIParser):
     # returns nothing
     def section_defines(self, line, match):
         global INFDefines
-        items = line.split("=", maxsplit = 1)
-        if len(items) < 2:
-            self.ReportError("Invalid INF define: {line}")
+        # Handle case where match is no good
+        if match == None or match.group(3) == None:
+            self.ReportError(f'Invalid defines format : {line}')
             return
-        attr  = items[0].strip()
-        value = items[1].strip()
-        if attr.startswith("DEFINE"):
-            attr = attr.replace("DEFINE","").lstrip()
+        # Get attribute being defined
+        attr  = match.group(3)
+        # Handle case where value is omitted
+        value = "" if match.group(6) == None else match.group(6)
+        # Is it a DEFINE case
+        if match.group(1) != None:
             self.defines[attr] = value
+        # Make sure it is a supported attribute
         else:
             if not attr in INFDefines:
                 self.ReportError(f"Unsupported INF define: {attr}")
@@ -1535,12 +1544,12 @@ class DSCParser(UEFIParser):
     # returns nothing
     def section_defines(self, line, match):
         # Handle case where match is no good
-        if match == None:
+        if match == None or match.group(3) == None:
             self.ReportError(f'Invalid defines format : {line}')
             return
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        value = "" if match.group(6) == None else match.group(6).rstrip()
-        self.DefineMacro(match.group(3), value)
+        # Handle case where value is omitted
+        value = "" if match.group(6) == None else match.group(6)
+        self.DefineMacro(match.group(3).strip(), value)
 
     # Handle a line in the [PcdsFeatureFlag] section
     # line:  Contents of line
