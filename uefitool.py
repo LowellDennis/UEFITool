@@ -10,6 +10,10 @@ import sys
 
 # Constants
 
+# Regular Expressions
+reBuildArgs = r'-D([^=$]+)(=([^$]+))?$'                                                         # Format "-D macro[=[value]]", group(2)=macro, group(4)=value
+reDefine    = r'^([dD][eE][fF][iI][nN][eE])?([ \t]+)?([^= \t]+)([ \t]+)?=([ \t]+)?([^$]+)?$'    # Format "[DEFINE] macro = value", group(1)=DEFINE, group(3)=macro, group(6)=value
+
 # Items defined in the [Defines] section of an INF file
 INFDefines = [
     "BASE_NAME",     "CONSTRUCTOR",              "DESTRUCTOR",  "EDK_RELEASE_VERSION",       "EFI_SPECIFICATION_VERSION",
@@ -408,7 +412,7 @@ class UEFIParser:
 
     # Class constructor
     # fileName:             File to be parsed
-    # allowedSections:      List of allowed section names
+    # sectionsInfo:         Dictionary of allowed section names indicating their formats and support for subsections
     # allowIncludes:        True if !include directive is supported
     # allowConditionals:    True if conditional directives (!if, !ifdef, !ifndef, !else, !elseif, !endif) are supported
     # additionalDirectives: List of allowed directives other than include and conditionals (default is [] for None)
@@ -418,7 +422,7 @@ class UEFIParser:
     # returns nothing
     #
     # NOTES on handlers in child class!
-    #    Child class MAY  provide a handler for "section_<name>"    for each name in allowedSections.
+    #    Child class MAY  provide a handler for "section_<name>"    for each name in sectionInfo.
     #    "DefaultSection" is used for any section that  does not have a handler in the child class.
     #    Child class MUST provide a handler for "directive_<name>"  for each name in additionalDirectives.
     #    If no handler is found an error will be generated.
@@ -429,11 +433,11 @@ class UEFIParser:
     #    Child class MAY  provide "macro_<name>"   handler to be called when macro "name" is set.
     #    This class provides handlers for all conditional directives.
 
-    def __init__(self, fileName, allowedSections, allowIncludes = False, allowConditionals = False, additionalDirectives = [], sections = [], process = True):
+    def __init__(self, fileName, sectionsInfo, allowIncludes = False, allowConditionals = False, additionalDirectives = [], sections = [], process = True):
         global MacroVer
         # Save given information
         self.fileName             = fileName
-        self.allowedSections      = allowedSections
+        self.sectionsInfo         = sectionsInfo
         self.allowIncludes        = allowIncludes
         self.allowConditionals    = allowConditionals
         self.additionalDirectives = additionalDirectives
@@ -539,7 +543,7 @@ class UEFIParser:
             # Get name
             name     = items[0].lower()
             # Make sure it is an allowed section name
-            if name in self.allowedSections:
+            if name in self.sectionsInfo:
                 # Make sure architecture is supported
                 if self.__sectionSupported__(items):
                     sectionStr = GetSection(items)
@@ -564,8 +568,13 @@ class UEFIParser:
                 if self.__sectionSupported__(self.section):
                     self.sectionStr = GetSection(self.section)
                     handler = getattr(self, f"section_{self.section[0]}", None)
-                    if handler and callable(handler): handler(line)
-                    else:                             self.DefaultSection(line, self.section[0])
+                    if handler and callable(handler):
+                        regex = self.sectionsInfo[self.section[0]]
+                        if regex == None: handler(line, None)
+                        else:
+                            match = re.match(regex, line)
+                            handler(line, match)
+                    else: self.DefaultSection(line, self.section[0])
                 # Else taken care of in __sectionSupported__ method!
         else: self.ReportError(f"Line discovered outside of a section")
 
@@ -827,23 +836,19 @@ class UEFIParser:
     # Defines a new macro
     # line: line containing the macro
     # returns nothing
-    def DefineMacro(self, line):
+    def DefineMacro(self, macro, value):
         global SHOW_MACRO_DEFINITIONS, Macros
-        # Get the macroName and macroValue (format <macroName>=<macroValue>)
-        macroName, macroValue = line.split('=', 1)
-        macroName         = macroName.strip()
-        macroValue        = macroValue.strip()
         try:
             # See if value can be interpreted
-            macroValue = eval(macroValue)
+            value = eval(value)
         except Exception:
-            macroValue = '"' + macroValue + '"'
+            value = '"' + value + '"'
         # Save result
-        if not macroValue: macrovalue = '""'
-        SetMacro(macroName, macroValue)
+        if not value: macrovalue = '""'
+        SetMacro(macro, value)
         # Call handler for this macro (if found)
-        handler = getattr(self, f"macro_{macroName}", None)
-        if handler and callable(handler): handler(macroValue)
+        handler = getattr(self, f"macro_{macro}", None)
+        if handler and callable(handler): handler(value)
 
     # Handles error repoting
     # message: error message
@@ -889,8 +894,14 @@ class UEFIParser:
             # Note else error handled in self.FindFile!
 
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
-class ArgsParser(UEFIParser):
-    BuildArgsSections =   [ 'hpbuildargs', 'environmentvariables', 'pythonprehpbuildscripts', 'pythonprebuildscripts', 'pythonpostbuildscripts', 'pythonbuildfailscripts' ]
+class ArgsParser(UEFIParser):                      # regularExpression
+    BuildArgsSections = { 'environmentvariables':    reBuildArgs,
+                          'hpbuildargs':             reBuildArgs,
+                          'pythonbuildfailscripts':  None,
+                          'pythonprebuildscripts':   None,
+                          'pythonprehpbuildscripts': None,
+                          'pythonpostbuildscripts':  None,
+    }
 
     ###################
     # Private methods #
@@ -919,38 +930,47 @@ class ArgsParser(UEFIParser):
     # Section handlers #
     ####################
 
-    # Handle a line in the [HpBuildArgs] section
-    # line:    Line to handle
-    # returns nothing
-    def section_hpbuildargs(self, line):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        # Look for definition (format "-D <macroName=macroValue")
-        if line.startswith('-D'):
-            _, line = line.split(maxsplit=1)
-            self.DefineMacro(line)
-
     # Handle a line in the [EnvironmentVariables] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_environmentvariables(self, line):
+    def section_environmentvariables(self, line, match):
+        # Handle case where match is no good
+        if match == None:
+            self.ReportError(f'Invalid environmentvariables format : {line}')
+            return
         # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        # Look for definition (format "-D <macroName=macroValue")
-        if line.startswith('-D'):
-            _, line = line.split(maxsplit=1)
-            self.DefineMacro(line)
-        else:
-            super().DefaultSection(line, "environementvariables")
+        value=match(3).split(' //')[0].strip()
+        if value == "": value = "TRUE"
+        self.DefineMacro(match.groups(1).strip(), value)
+
+    # Handle a line in the [HpBuildArgs] section
+    # line:  Contents of line
+    # match: Results of regex match
+    # returns nothing
+    def section_hpbuildargs(self, line, match):
+        # Handle case where match is no good
+        if match == None:
+            self.ReportError(f'Invalid hpbuildargs format : {line}')
+            return
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        self.DefineMacro(match.group(1).strip(), match.group(3).split(' //')[0].strip())
 
     # The following sections are handled by the defaut handler:
-    #     pythonprebuildscripts
-    #     pythonpostbuildscripts
     #     pythonbuildfailscripts
+    #     pythonprebuildscripts
+    #     pythonprehpbuildscripts
+    #     pythonpostbuildscripts
 
 # Class for parsing HPE Chipset files (HpChipsetInfo.txt)
-class ChipsetParser(UEFIParser):
-    ChipsetSections =   [ "platformpackages",  "hpbuildargs", "binaries", "upatches", "snaps", "tagexceptions" ]
+class ChipsetParser(UEFIParser):          # regularExpression
+    ChipsetSections = { 'binaries':         None,
+                        'hpbuildargs':      reBuildArgs,
+                        'platformpackages': None,
+                        'snaps':            None,
+                        'tagexceptions':    None,
+                        'upatches':         None,
+    }
 
     ###################
     # Private methods #
@@ -968,25 +988,30 @@ class ChipsetParser(UEFIParser):
     ####################
 
     # Handle a line in the [HpBuildArgs] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_hpbuildargs(self, line):
+    def section_hpbuildargs(self, line, match):
+        # Handle case where match is no good
+        if match == None:
+            self.ReportError('Invalid hpbuildargs format : {line}')
+            return
         # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        # Look for definition (format "-D <macroName=macroValue")
-        if line.startswith('-D'):
-            _, line = line.split(maxsplit=1)
-            self.DefineMacro(line)
+        self.DefineMacro(match.group(1).strip(), match.group(3).split(' //')[0].strip())
 
     # The following sections are handled by the defaut handler:
-    #    platformpackages
     #    binaries
-    #    upatches
+    #    platformpackages
     #    snaps
     #    tagexceptions
+    #    upatches
 
-class FDFParser(UEFIParser):
-    FDFSections =   [ 'defines', 'fd', 'fv', 'rule' ]
+class FDFParser(UEFIParser): # regularExpression
+    FDFSections = { 'defines': reDefine,
+                    'fd':      None,
+                    'fv':      None,
+                    'rule':    None,
+    }
 
     ###################
     # Private methods #
@@ -998,20 +1023,6 @@ class FDFParser(UEFIParser):
     def __init__(self, fileName):
         # Call cunstructor for parent class
         super().__init__(fileName, self.FDFSections, True, True)
-
-    ####################
-    # Section handlers #
-    ####################
-
-    # Handle a line in the [Defines] section
-    # line:    Line to handle
-    # returns nothing
-    def section_defines(self,  line):
-        # Remove "DEFINE" (if found)
-        if line.startswith('DEFINE '):
-            _, line = line.split('DEFINE', maxsplit=1)
-        # Define macro!
-        self.DefineMacro(line)
 
     ######################
     # Directive handlers #
@@ -1028,12 +1039,41 @@ class FDFParser(UEFIParser):
                 fdf = FDFParser(file)
         self.IncludeFile(line, includeHandler)
 
+    ####################
+    # Section handlers #
+    ####################
+
+    # Handle a line in the [Defines] section
+    # line:  Contents of line
+    # match: Results of regex match
+    # returns nothing
+    def section_defines(self, line, match):
+        # Handle case where match is no good
+        if match == None:
+            self.ReportError(f'Invalid defines format : {line}')
+            return
+        self.DefineMacro(match.group(1).strip(), match.group(3).strip())
+
+    # The following sections are handled by the defaut handler:
+    #    fd
+    #    fv
+    #    rule
+
 # Class for handling UEFI DEC files
-class DECParser(UEFIParser):
-    DECSections = [
-        'defines',         'guids',            'includes',              'libraryclasses', 'pcdsdynamic', 'pcdsdynamicex',
-        'pcdsfeatureflag', 'pcdsfixedatbuild', 'pcdspatchableinmodule', 'ppis',           'protocols',   'userextensions',
-    ]
+class DECParser(UEFIParser):               # regularExpression
+    DECSections = { 'defines':               reDefine,
+                    'guids':                 None,
+                    'includes':              None,
+                    'libraryclasses':        None,
+                    'pcdsdynamic':           None,
+                    'pcdsdynamicex':         None,
+                    'pcdsfeatureflag':       None,
+                    'pcdsfixedatbuild':      None,
+                    'pcdspatchableinmodule': None,
+                    'ppis':                  None,
+                    'protocols':             None,
+                    'userextensions':        None,
+    }
 
     ###################
     # Private methods #
@@ -1051,35 +1091,39 @@ class DECParser(UEFIParser):
     ####################
 
     # Handle a line in the [Defines] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_defines(self,  line):
-        # Remove "DEFINE" (if found)
-        if line.startswith('DEFINE '):
-            _, line = line.split('DEFINE', maxsplit=1)
-        # Define macro!
-        self.DefineMacro(line)
+    def section_defines(self, line, match):
+        # Handle case where match is no good
+        if match == None:
+            self.ReportError(f'Invalid defines format : {line}')
+            return
+        self.DefineMacro(match.group(3).strip(), match.group(6).strip())
 
     # Handle a line in the [Guids] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_guids(self,  line):
+    def section_guids(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         guid = GUID(self.section, line, self)
 
     # Handle a line in the [Includes] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_includes(self,  line):
+    def section_includes(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         super().DefaultSection(line, "includes")
 
     # Handle a line in the [LibraryClasses] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_libraryclasses(self,  line):
+    def section_libraryclasses(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         # Just in case there is some training gunk on the line!
@@ -1087,57 +1131,64 @@ class DECParser(UEFIParser):
         libraryclass = LibraryClass(self.section, line, self)
 
     # Handle a line in the [PcdsDynamic] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamic(self, line):
+    def section_pcdsdynamic(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
  
     # Handle a line in the [PcdsDynamicEx] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicex(self, line):
+    def section_pcdsdynamicex(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsFeatureFlag] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsfeatureflag(self,  line):
+    def section_pcdsfeatureflag(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsFixedAtBuild] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsfixedatbuild(self, line):
+    def section_pcdsfixedatbuild(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsPatchableInModule] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdspatchableinmodule(self, line):
+    def section_pcdspatchableinmodule(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Ppis] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_ppis(self, line):
+    def section_ppis(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         super().DefaultSection(line, "ppis")
 
     # Handle a line in the [Protocols] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_protocols(self, line):
+    def section_protocols(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         super().DefaultSection(line, "protocols")
@@ -1147,10 +1198,24 @@ class DECParser(UEFIParser):
 
 # Class for handling UEFI DEC files
 class INFParser(UEFIParser):
-    INFSections = [
-        'binaries', 'buildoptions', 'defines', 'depex', 'featurepcd', 'fixedpcd',  'guids',   'includes',      'libraryclasses',
-        'packages', 'patchpcd',     'pcd',     'pcdex', 'ppis',       'protocols', 'sources', 'userextensions',
-    ]
+    INFSections = { 'binaries':        None,
+                    'buildoptions':    None,
+                    'defines':         reDefine,
+                    'depex':           None,
+                    'featurepcd':      None,
+                    'fixedpcd':        None,
+                    'guids':           None,
+                    'includes':        None,
+                    'libraryclasses':  None,
+                    'packages':        None,
+                    'patchpcd':        None,
+                    'pcd':             None,
+                    'pcdex':           None,
+                    'ppis':            None,
+                    'protocols':       None,
+                    'sources':         None,
+                    'userextensions':  None,
+    }
 
     ###################
     # Private methods #
@@ -1180,9 +1245,10 @@ class INFParser(UEFIParser):
     ####################
 
     # Handle a line in the [Defines] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_defines(self, line):
+    def section_defines(self, line, match):
         global INFDefines
         items = line.split("=", maxsplit = 1)
         if len(items) < 2:
@@ -1201,57 +1267,64 @@ class INFParser(UEFIParser):
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{attr}={value}")
 
     # Handle a line in the [Depex] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_depex(self, line):
+    def section_depex(self, line, match):
         self.depex += " " + re.sub("[ \t]+", " ", line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [FeaturePcd] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_featurepcd(self, line):
+    def section_featurepcd(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [FixedPcd] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_fixedpcd(self, line):
+    def section_fixedpcd(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Guids] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_guids(self, line):
+    def section_guids(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         guid = GUID(self.section, line, self)
 
     # Handle a line in the [Includes] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_includes(self, line):
+    def section_includes(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.includes.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_libraryclasses(self, line):
+    def section_libraryclasses(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         libraryclass = LibraryClass(self.section, line, self)
 
     # Handle a line in the [Packages] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_packages(self, line):
+    def section_packages(self, line, match):
         global DECs
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
@@ -1260,51 +1333,57 @@ class INFParser(UEFIParser):
         if Debug(SHOW_PACKAGES_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [PatchPcd] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_patchpcd(self, line):
+    def section_patchpcd(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Pcd] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcd(self, line):
+    def section_pcd(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdEx] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdex(self,  line):
+    def section_pcdex(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [Ppis] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_ppis(self, line):
+    def section_ppis(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.ppis.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Protocols] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_protocols(self, line):
+    def section_protocols(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.protocols.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Sources] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_sources(self, line):
+    def section_sources(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.sources.append(line)
@@ -1317,11 +1396,26 @@ class INFParser(UEFIParser):
 
 # Class for handling UEFI DSC files
 class DSCParser(UEFIParser):
-    DSCSections =   [ 'buildoptions',          'components',           'defaultstores',    'defines',
-                      'libraries',             'libraryclasses',       'pcdsdynamic',      'pcdsdynamicdefault',
-                      'pcdsdynamicex',         'pcdsdynamicexdefault', 'pcdsdynamicexhii', 'pcdsdynamicexvpd',
-                      'pcdsdynamichii',        'pcdsdynamicvpd',       'pcdsfeatureflag',  'pcdsfixedatbuild',
-                      'pcdspatchableinmodule', 'skuids',               'userextensions',    ]
+    DSCSections = { 'buildoptions':          None,
+                    'components':            None,
+                    'defaultstores':         None,
+                    'defines':               reDefine,
+                    'libraries':             None,
+                    'libraryclasses':        None,
+                    'pcdsdynamic':           None,
+                    'pcdsdynamicdefault':    None,
+                    'pcdsdynamicex':         None,
+                    'pcdsdynamicexdefault':  None,
+                    'pcdsdynamicexhii':      None,
+                    'pcdsdynamicexvpd':      None,
+                    'pcdsdynamichii':        None,
+                    'pcdsdynamicvpd':        None,
+                    'pcdsfeatureflag':       None,
+                    'pcdsfixedatbuild':      None,
+                    'pcdspatchableinmodule': None,
+                    'skuids':                None,
+                    'userextensions':        None,
+    }
 
     ###################
     # Private methods #
@@ -1390,9 +1484,10 @@ class DSCParser(UEFIParser):
     ####################
 
     # Handle a line in the [Components] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_components(self,  line):
+    def section_components(self, line, match):
         global INFs
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
@@ -1426,131 +1521,149 @@ class DSCParser(UEFIParser):
         if Debug(SHOW_COMPONENT_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [DefaultStores] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_defaultstores(self, line):
+    def section_defaultstores(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         store = DefaultStore(self.section, line, self)
 
     # Handle a line in the [Defines] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_defines(self, line):
-        # Remove "DEFINE" (if found)
-        if line.startswith('DEFINE '):
-            _, line = line.split('DEFINE', maxsplit=1)
-        # Define macro!
-        self.DefineMacro(line)
+    def section_defines(self, line, match):
+        # Handle case where match is no good
+        if match == None:
+            self.ReportError(f'Invalid defines format : {line}')
+            return
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        value = "" if match.group(6) == None else match.group(6).rstrip()
+        self.DefineMacro(match.group(3), value)
 
     # Handle a line in the [PcdsFeatureFlag] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsfeatureflag(self, line):
+    def section_pcdsfeatureflag(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsFixedAtBuild] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsfixedatbuild(self, line):
+    def section_pcdsfixedatbuild(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsPatchableInModule] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdspatchableinmodule(self,  line):
+    def section_pcdspatchableinmodule(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamic] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamic(self, line):
+    def section_pcdsdynamic(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicEx] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicex(self, line):
+    def section_pcdsdynamicex(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicDefault] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicdefault(self, line):
+    def section_pcdsdynamicdefault(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicHII] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamichii(self, line):
+    def section_pcdsdynamichii(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicHII] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicvpd(self, line):
+    def section_pcdsdynamicvpd(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicExDefault] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicexdefault(self, line):
+    def section_pcdsdynamicexdefault(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicExHii] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicexhii(self, line):
+    def section_pcdsdynamicexhii(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [PcdsDynamicExVpd] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_pcdsdynamicexvpd(self, line):
+    def section_pcdsdynamicexvpd(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         pcd = PCD(self.section, line, self)
 
     # Handle a line in the [SkuIds] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_skuids(self, line):
+    def section_skuids(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         sku = SkuId(self.section, line, self)
 
     # Handle a line in the [Libraries] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_libraries(self, line):
+    def section_libraries(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         super().DefaultSection(line, "libraries")
 
     # Handle a line in the [LibraryClasses] section
-    # line:    Line to handle
+    # line:  Contents of line
+    # match: Results of regex match
     # returns nothing
-    def section_libraryclasses(self, line):
+    def section_libraryclasses(self, line, match):
         global INFs
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
