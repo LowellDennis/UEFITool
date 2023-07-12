@@ -10,10 +10,25 @@ import sys
 
 # Constants
 
-# Regular Expressions
-reEquate    = r'^([^= \t]+)([ \t]+)?=([ \t]+)?([^$]+)?$'                                        # Format "macro = value", group(1)=macro, group(3)=value OPTIONAL
-reBuildArgs = r'^-D([ \t]+)([^= \t]+)([ \t]+)?(=([ \t]+)?([^$]+)?)?$'                           # Format "-D macro[ = [value]]", group(2)=macro, group(6)=value OPTIONAL
-reDefine    = r'^([dD][eE][fF][iI][nN][eE])?([ \t]+)?([^= \t]+)([ \t]+)?=([ \t]+)?([^$]+)?$'    # Format "[DEFINE] macro = value", group(1)=DEFINE, group(3)=macro, group(6)=value OPTIONAL
+# Regular Expression for matching sections with format "item = [value]"
+# Groups: 1=>item, 3->optional value
+reEquate    = r'^([^=\s]+)\s*(=\s*([^$]+)?$)?'
+
+# Regular Expression for matching sections with format "-D item = [value]"
+# Groups 1=>item, 2=>optional value
+reBuildArgs = r'^-D\s*([^=\s]+)\s*(=\s*([^$]+)?)?$'
+
+# Regular expression for matching sections with format "[DEFINE] item = [value]"
+# Groups 2=>optional DEFINE, 3=>item, 4=optional value
+reDefine    = r'^(([dD][eE][fF][iI][nN][eE])\s+)?([^=\s]+)\s*=\s*([^$]+)?$'
+
+# Regular expression for matching sections with format "item1 [ | item2]"
+# Groups 1=>library, 3=>optional path
+reBar       = r'^([^\s\|$]+)\s*(\|?\s*([^$]+)?)?'
+
+# Regular expression for matching sections with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
+# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=?optional item5
+rePcds      = r'^([^\.]+)\.([^\s\|$]+)\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^$]+)?)?'
 
 # Items defined in the [Defines] section of an INF file
 INFDefines = [
@@ -26,31 +41,30 @@ INFDefines = [
 # DEBUG Constants
 SHOW_COMMENT_SKIPS          = 0x80000000    # Show lines being skipped due to being blank or comments
 SHOW_SKIPPED_ARCHITECTURES  = 0x40000000    # Show lines being skipped due to architectural limitation
-SHOW_SKIPPED_DECS           = 0x20000000    # Show DEC files being skipped because they were previously loaded
-SHOW_SKIPPED_INFS           = 0x1000000     # Show INF files being skipped because they were previously loaded
-SHOW_ERROR_DIRECT1VE        = 0x02000000    # Show lines with error directives
+SHOW_SKIPPED_INFS           = 0x20000000    # Show INF files skipped because they have already been processed
+SHOW_CONDITIONAL_SKIPS      = 0x10000000    # Show lines being skipped due to conditionals
+SHOW_CONVERTED_CONDITIONAL  = 0x08000000    # Show conditional after conversion to python
+SHOW_CONDITIONAL_LEVEL      = 0x04000000    # Show conditional level
+SHOW_CONDITIONAL_DIRECTIVES = 0x02000000    # Show lines with conditional directives 
 SHOW_SPECIAL_HANDLERS       = 0x01000000    # Show special handlers
+SHOW_INCLUDE_RETURN         = 0x00800000    # Show when returing from an included files
+SHOW_INCLUDE_DIRECTIVE      = 0x00400000    # Show include directive lines
+SHOW_DEFAULT_SECTION        = 0x00200000    # Show lines handled by default section handler
 #
-SHOW_CONDITIONAL_SKIPS      = 0x00800000    # Show lines being skipped due to conditionals
-SHOW_CONVERTED_CONDITIONAL  = 0x00400000    # Show conditional after conversion to python
-SHOW_CONDITIONAL_LEVEL      = 0x00200000    # Show conditional level
-SHOW_CONDITIONAL_DIRECTIVES = 0x00100000    # Show lines with conditional directives 
+SHOW_LIBRARIES_ENTRIES      = 0x00008000    # Show include definitions
+SHOW_INCLUDE_ENTRIES        = 0x00004000    # Show include definitions
+SHOW_PACKAGES_ENTRIES       = 0x00002000    # Show package definitions
+SHOW_COMPONENT_ENTRIES      = 0x00001000    # Show component definitions
+SHOW_INF_ENTRIES            = 0x00000800    # Show INF definitions
+SHOW_LIBRARY_CLASS_ENTRIES  = 0x00000400    # Show LibraryClass definitions
+SHOW_DEFAULT_STORE_ENTRIES  = 0x00000200    # Show DefaultStore definitions
+SHOW_PROTOCOL_ENTRIES       = 0x00000100    # Show Protocol definitions
+SHOW_PPI_ENTRIES            = 0x00000080    # Show PPI definitions
+SHOW_SKUID_ENTRIES          = 0x00000040    # Show SkuId definitions
+SHOW_GUID_ENTRIES           = 0x00000020    # Show GUID definitions
+SHOW_PCD_ENTRIES            = 0x00000010    # Show PCD definitions
 #
-SHOW_DEFAULT_SECTION        = 0x00080000    # Show lines handled by default section handler
-SHOW_PACKAGES_ENTRIES       = 0x00020000    # Show package definitions
-SHOW_COMPONENT_ENTRIES      = 0x00010000    # Show component definitions
-SHOW_INF_ENTRIES            = 0x00008000    # Show INF definitions
-SHOW_LIBRARY_CLASS_ENTRIES  = 0x00004000    # Show LibraryClass definitions
-SHOW_DEFAULT_STORE_ENTRIES  = 0x00002000    # Show DefaultStore definitions
-SHOW_PROTOCOL_ENTRIES       = 0x00001000    # Show Protocol definitions
-SHOW_PPI_ENTRIES            = 0x00000800    # Show PPI definitions
-SHOW_SKUID_ENTRIES          = 0x00000400    # Show SkuId definitions
-SHOW_GUID_ENTRIES           = 0x00000200    # Show GUID definitions
-SHOW_PCD_ENTRIES            = 0x00000100    # Show PCD definitions
-#
-SHOW_INCLUDE_RETURN         = 0x00000020    # Show when returing from an included files
-SHOW_INCLUDE_DIRECTIVE      = 0x00000010    # Show include directive lines
-#
+SHOW_ERROR_DIRECT1VE        = 0x00000008    # Show lines with error directives
 SHOW_MACRO_DEFINITIONS      = 0x00000004    # Show macro definitions
 SHOW_SECTION_CHANGES        = 0x00000002    # Show changes in sections
 SHOW_FILENAMES              = 0X00000001    # Show names of files being processed
@@ -58,11 +72,11 @@ SHOW_FILENAMES              = 0X00000001    # Show names of files being processe
 DEBUG_NONE                  = 0
 DEBUG_INCLUDES              = SHOW_INCLUDE_DIRECTIVE + SHOW_INCLUDE_RETURN
 DEBUG_CONDITIONALS          = SHOW_CONDITIONAL_DIRECTIVES + SHOW_CONDITIONAL_LEVEL + SHOW_CONVERTED_CONDITIONAL
-DEBUG_SECTIONS              = SHOW_DEFAULT_SECTION + SHOW_PCD_ENTRIES + SHOW_GUID_ENTRIES + SHOW_SKUID_ENTRIES + SHOW_PPI_ENTRIES + SHOW_PROTOCOL_ENTRIES + SHOW_DEFAULT_STORE_ENTRIES + SHOW_LIBRARY_CLASS_ENTRIES + SHOW_INF_ENTRIES
+DEBUG_SECTIONS              = SHOW_DEFAULT_SECTION + SHOW_PCD_ENTRIES + SHOW_GUID_ENTRIES + SHOW_SKUID_ENTRIES + SHOW_PPI_ENTRIES + SHOW_PROTOCOL_ENTRIES + SHOW_DEFAULT_STORE_ENTRIES + SHOW_LIBRARY_CLASS_ENTRIES + SHOW_INF_ENTRIES + SHOW_INCLUDE_ENTRIES + SHOW_LIBRARIES_ENTRIES
 DEBUG_SKIPS                 = SHOW_COMMENT_SKIPS + SHOW_CONDITIONAL_SKIPS + SHOW_SKIPPED_ARCHITECTURES
 DEBUG_MINIMAL               = 0x00000001
 DEBUG_NORMAL                = 0x0000000F
-DEBUG_VERBOSE               = 0x001FFFFF
+DEBUG_VERBOSE               = 0x0FFFFFFF
 DEBUG_ALL                   = 0xFFFFFFFF
 
 # Global Variables
@@ -147,18 +161,6 @@ def FindPath(partial):
         if os.path.exists(file): return file
     return None
 
-# Fill in section information for object
-# self:    Object reference
-# section: Section information
-# object:  Referring object
-# returns nothing
-def SetSectionAndFileInfo(self, section, object):
-    # Initialize section data
-    self.section    = section
-    # Initialize file data
-    self.fileName   = object.fileName
-    self.lineNumber = object.lineNumber
-
 # Add an entry to the database
 # db:    Database to which to add entry
 # name:  Name under which to add the entry
@@ -193,203 +195,33 @@ class DB:
     ###################
 
     # Class constructor
-    # sections: Section in which database entry is found (format [name[, arch, [extra]]])
-    # info:     Information associated with database entry (value|ID)
     # object:   Object in which database entry is found
-    # key:      Name of database key attribute
+    # names:    List of attribute names  for this object
+    # values:   List of attribute values for this object (same order/size as)
+    # key:      Name of attribute that is to be the key value
     # db:       Database into which the entry is to be placed
-    # items:    Info items to show when debug is enabled
-    # debug:    Debug setting to check
+    # debug:    Debug setting to check for output purposes
     # returns nothing
-    def __init__(self, section, info, object, key, db, items, debug):
+    def __init__(self, object, names, values, key, db, debug):
         # Init secion and file info
-        SetSectionAndFileInfo(self, section, object)
-        # Parse the info
-        if not self.parseInfo(info): return
+        self.section    = object.section
+        # Initialize file data
+        self.fileName   = object.fileName
+        self.lineNumber = object.lineNumber
+        # Copy map to class
+        if Debug(debug): msg = f"{object.lineNumber}:{object.sectionStr}"
+        for i, name in enumerate(names):
+            value = values[i]
+            setattr(self, name, value)
+            if Debug(debug):
+                if value == None or type(value) is str and value == '': continue
+                msg = msg + f"{name}={value} "
         # Add entry to the database
-        Add2DB(db, getattr(self, key), self)
+        key = getattr(self, key)
+        Add2DB(db, key, self)
         # Show info if debug is enabled
-        if Debug(debug):
-            msg = f"{object.lineNumber}:{object.sectionStr}"
-            for item in items:
-                value = getattr(self, item)
-                if not value == None:
-                    msg = msg + f"{item}={getattr(self, item)} "
-            print(msg.rstrip())
+        if Debug(debug): print(msg.rstrip())
 
-# Class for a DefaultStores entries
-class DefaultStore(DB):
-    ###################
-    # Private methods #
-    ###################
-
-    # Class constructor
-    # sections: Section in which DefaultStores entry is found (format [name[, arch, [extra]]])
-    # info:     Information associated with DefaultStore entry (value|ID)
-    # object:   Object in which DefaultStore entry is found
-    # returns nothing
-    def __init__(self, section, info, object):
-        global DefaultStores, SHOW_DEFAULT_STORE_ENTRIES
-        # Call cunstructor for parent class
-        super().__init__(section, info, object, "id", DefaultStores, ["id", "value"], SHOW_DEFAULT_STORE_ENTRIES)
-
-    # Parse DefaultStore info line (format "value|id")
-    # info: line of info to parse
-    # returns True if info parsed without error, False otherwise   
-    def parseInfo(self, info):
-        # Get value
-        items        = info.split("|", maxsplit=1)
-        self.value   = items[0].strip()
-        # Get ID (if it is there)
-        if len(items) < 2:
-            object.reportError("DefaultStore info not valid: {info}")
-            return False
-        self.id      = items[1].strip().replace('"', '')
-        return True
-
-# Class for a SkuId entry
-class SkuId(DB):
-    ###################
-    # Private methods #
-    ###################
-
-    # Class constructor
-    # sections: Section in which SkuId entry is found (format [name[, arch, [extra]]])
-    # info:     Information associated with SKuId entry (value|ID)
-    # object:   Object in which SkuId entry is found
-    # returns nothing
-    def __init__(self, section, info, object):
-        global SkuIds, SHOW_SKUID_ENTRIES
-        # Call cunstructor for parent class
-        super().__init__(section, info, object, "id", SkuIds, ["id", "value"], SHOW_SKUID_ENTRIES)
-
-    # Parse SkuId info line (format "value|id")
-    # info: line of info to parse
-    # returns True if info parsed without error, False otherwise   
-    def parseInfo(self, info):
-        # Get value
-        items        = info.split("|", maxsplit=1)
-        self.value   = items[0].strip()
-        # Get ID (if it is there)
-        if len(items) < 2:
-            object.reportError("SkuID info not valid: {info}")
-            return False
-        self.id      = items[1].strip().replace('"', '')
-        return True
-
-# Class for a LibraryClass entry
-class LibraryClass(DB):
-    ###################
-    # Private methods #
-    ###################
-
-    # Class constructor
-    # sections: Section in which LibraryClass entry is found (format [name[, arch, [extra]]])
-    # info:     Information associated with LibraryClass (name|infPath)
-    # object:   Object in which LibraryClass is found
-    # returns nothing
-    def __init__(self, section, info, object):
-        global LibraryClasses, SHOW_LIBRARY_CLASS_ENTRIES
-        # Call cunstructor for parent class
-        super().__init__(section, info, object, "name", LibraryClasses, ["name", "path"], SHOW_LIBRARY_CLASS_ENTRIES)
-
-    # Parse LibraryClass info line (format "name[|path]")
-    # info: line of info to parse
-    # returns True if info parsed without error, False otherwise   
-    def parseInfo(self, info):
-        # Init name
-        items        = info.split("|", maxsplit=1)
-        self.name    = items[0].strip()
-        # Get path (if it is there)
-        self.path    = None if len(items) < 2 else items[1].strip().replace('"', '')
-        return True
-
-# Class for a PCD entry
-class PCD(DB):
-    ###################
-    # Private methods #
-    ###################
-
-    # Class constructor
-    # sections: Section in which PCD is found (format [name[, arch, [extra]]])
-    # info:     Information associated with PCD (format guid.name[|value[|kind[|token]]])
-    # object:   Object in which PCD is found
-    # returns nothing
-    def __init__(self, section, info, object):
-        self.object = object
-        global PCDs, SHOW_PCD_ENTRIES
-        if object.fileName.endswith('.dsc'):
-            self.type = "DSC"
-        elif object.fileName.endswith('dec'):
-            self.type = "DEC"
-        else:
-            self.type = "INF"
-        # Call cunstructor for parent class
-        super().__init__(section, info, object, "name", PCDs, ["type", "name", "index", "value", "kind", "token"], SHOW_PCD_ENTRIES)
-
-    # Parse PCD info line (format "name|path")
-    # info: line of info to parse (format name or guid.name[|value[|type[|token]]])
-    # returns True if info parsed without error, False otherwise   
-    def parseInfo(self, info):
-        old = info
-        # Init items that may not be specified
-        self.guid      = self.index = self.value = self.kind = self.token = None
-        # Remove any trailing garbage
-        info           = re.findall("(?:\".*?\"|\S)+", info)[0]
-        # Split into GUID and name (if appropriate, might be just name)
-        items          = info.split(".", maxsplit=1)
-        if len(items) > 1:
-            # Format is guid.name[|value[|type[|token]]]
-            # Get GUID
-            self.guid  = items[0].strip()
-            # Look for value, type, token
-            items      = items[1].strip().split("|")
-            # Get name
-            parts      = items[0].strip().split('.', maxsplit = 1)
-            self.name  = parts[0]
-            if len(parts) > 1: self.index = parts[1].strip()
-            length     = len(items)
-            # Get remaining items (if any)
-            if length > 1:
-                self.value = items[1].strip()
-                if length > 2:
-                    self.kind  = items[2].strip()
-                    if length > 3:
-                        self.token = items[3].strip()
-        else:
-            # Format name
-            # Get name
-            self.name  = items[0].strip()
-        return True
-
-# Class for a GUID entry
-class GUID(DB):
-    ###################
-    # Private methods #
-    ###################
-
-    # Class constructor
-    # sections: Section in which GUID definition or reference is found (format name[, arch, [extra]])
-    # info:     Reference or definition associated with GUID (format name[={UINT32, UINT16, UINT16, {UINT08, UINT08, UINT08, UINT08, UINT08, UINT08, UINT08, UINT08}]}
-    # object:   Object in which GUID reference or definition is found
-    # returns nothing
-    def __init__(self, section, info, object):
-        global GUIDs, SHOW_GUID_ENTRIES
-        # Call cunstructor for parent class
-        super().__init__(section, info, object, "name", GUIDs, ["name", "value"], SHOW_GUID_ENTRIES)
-
-    # Parse GUID info line (format "name|path")
-    # info: line of info to parse (format name[=guid])
-    # returns True if info parsed without error, False otherwise   
-    def parseInfo(self, info):
-        # Split into name and GUID (if appropriate
-        items        = info.split("=", maxsplit=1)
-        # Get name
-        self.name    = items[0].strip()
-        # Get GUID (if preseent)
-        self.value   = None if len(items) < 2 else items[1].strip()
-        return True
-    
 # Base class for all UEFI file types
 class UEFIParser:
     ConditionalDirectives = ['if', 'ifdef', 'ifndef', 'elseif', 'else', 'endif']
@@ -894,6 +726,41 @@ class UEFIParser:
                 if Debug(SHOW_INCLUDE_RETURN): print(f"{self.lineNumber}:Returning to {self.fileName}")
             # Note else error handled in self.FindFile!
 
+    # Check results of regular expression match
+    # match:   Regular expression result
+    # usage:   Group usage string (character at each index indicates how that group is to be used)
+    #          ' ' - Skip group(index+1)
+    #          'R' - group(index+1) is required (cannot be empty string or None
+    #          'O" - group(index+1) is optional (may be empty and will be set to empty if None)
+    #          'X' - group(index+1) is forbidden (must be empty or None)
+    # last:    The last item in the list (this is for checking for C style comments)
+    # line:    Line being processed (for error message)
+    # returns a tuple of a True if there were no error or false if there were errors
+    #                 followed by a the list values of each of the groups listed in items (some may be '')
+    def CheckGroups(self, match, usage, last, line):
+        noError = False
+        values  = []
+        # Handle case where match is no good
+        if not match: self.ReportError(f'Invalid {self.section[0]} format: {line}')
+        else:
+            # Loop through groups to check
+            for g, u in enumerate(usage):
+                if u == ' ': continue   # Skip unused groups
+                g += 1                  # Adjust group index
+                # Get value (take care of case where value was not given and where value is the last one)
+                value = "" if match.group(g) == None else (match.group(last).split('//')[0].strip() if g == last else match.group(g))
+                # Make sure require groups are present and forbidden groups are not
+                if (u == 'R' and not value) or (u == 'X' and value):
+                    self.ReportError(f'Invalid {self.section[0]} format: {line}')
+                    break
+                # Append the value
+                values.append(value)
+            else:
+                # We got through all of the groups without and error
+                noError = True
+        # Return the results
+        return (noError, values)                             
+
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
 class ArgsParser(UEFIParser):                      # regularExpression
     BuildArgsSections = { 'environmentvariables':    reEquate,
@@ -936,26 +803,20 @@ class ArgsParser(UEFIParser):                      # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_environmentvariables(self, line, match):
-        # Handle case where match is no good
-        if match == None or match.group(1) == None:
-            self.ReportError(f'Invalid environmentvariables format : {line}')
-            return
-        # Handle case where value is omitted (also where C style cooment is uses erroneously)
-        value = "" if match.group(3) == None else match.group(3).split(' //')[0].strip() 
-        self.DefineMacro(match.groups(1), value)
+        # Handle match results: groups 1 required, 3 optional
+        good, items = self.CheckGroups( match, "R O", 3, line)
+        if good:
+          self.DefineMacro(items[1], items[2])
 
     # Handle a line in the [HpBuildArgs] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_hpbuildargs(self, line, match):
-        # Handle case where match is no good
-        if match == None or match.group(1) == None:
-            self.ReportError(f'Invalid hpbuildargs format : {line}')
-            return
-        # Handle case where C style cooment is uses erroneously
-        value = "" if match.group(6) == None else match.group(6).split(' //')[0].strip()
-        self.DefineMacro(match.group(2).strip(), value)
+        # Handle match results: groups 2 required, 3 optional
+        good, items = self.CheckGroups(match, " RO", 3, line)
+        if good:
+          self.DefineMacro(items[0], items[1])
 
     # The following sections are handled by the defaut handler:
     #     pythonbuildfailscripts
@@ -993,13 +854,10 @@ class ChipsetParser(UEFIParser):          # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_hpbuildargs(self, line, match):
-        # Handle case where match is no good
-        if match == None or match.group(1) == None:
-            self.ReportError(f'Invalid hpbuildargs format : {line}')
-            return
-        # Handle case where C style cooment is uses erroneously
-        value = "" if match.group(6) == None else match.group(6).split(' //')[0].strip()
-        self.DefineMacro(match.group(2).strip(), value)
+        # Handle match results: groups 2 required, 3 optional
+        good, items = self.CheckGroups(match, " RO", 3, line)
+        if good:
+          self.DefineMacro(items[0], items[1])
 
     # The following sections are handled by the defaut handler:
     #    binaries
@@ -1050,13 +908,10 @@ class FDFParser(UEFIParser): # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle case where match is no good
-        if match == None or match.group(3) == None:
-            self.ReportError(f'Invalid defines format : {line}')
-            return
-        # Handle case where value is omitted
-        value = "" if match.group(6) == None else match.group(6)
-        self.DefineMacro(match.group(3).strip(), value)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
+        if good:
+          self.DefineMacro(items[0], items[1])
 
     # The following sections are handled by the defaut handler:
     #    fd
@@ -1066,14 +921,14 @@ class FDFParser(UEFIParser): # regularExpression
 # Class for handling UEFI DEC files
 class DECParser(UEFIParser):               # regularExpression
     DECSections = { 'defines':               reDefine,
-                    'guids':                 None,
+                    'guids':                 reEquate,
                     'includes':              None,
-                    'libraryclasses':        None,
-                    'pcdsdynamic':           None,
-                    'pcdsdynamicex':         None,
-                    'pcdsfeatureflag':       None,
-                    'pcdsfixedatbuild':      None,
-                    'pcdspatchableinmodule': None,
+                    'libraryclasses':        reBar,
+                    'pcdsdynamic':           rePcds,
+                    'pcdsdynamicex':         rePcds,
+                    'pcdsfeatureflag':       rePcds,
+                    'pcdsfixedatbuild':      rePcds,
+                    'pcdspatchableinmodule': rePcds,
                     'ppis':                  None,
                     'protocols':             None,
                     'userextensions':        None,
@@ -1088,6 +943,8 @@ class DECParser(UEFIParser):               # regularExpression
     # returns nothing
     def __init__(self, fileName):
         # Call cunstructor for parent class
+        self.includes       = []
+        self.libraryclasses = []
         super().__init__(fileName, self.DECSections)
 
     ####################
@@ -1099,87 +956,97 @@ class DECParser(UEFIParser):               # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle case where match is no good
-        if match == None or match.group(3) == None:
-            self.ReportError(f'Invalid defines format : {line}')
-            return
-        # Handle case where value is omitted
-        value = "" if match.group(6) == None else match.group(6)
-        self.DefineMacro(match.group(3).strip(), value)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
+        if good:
+          self.DefineMacro(items[0], items[1])
 
     # Handle a line in the [Guids] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_guids(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        guid = GUID(self.section, line, self)
+        # Handle match results: groups 1 required, 3 optional
+        good, items = self.CheckGroups(match, "R R", 3, line)
+        if good:
+            DB(self, ['guid', 'value'], items, 'guid', GUIDs, SHOW_GUID_ENTRIES)
 
     # Handle a line in the [Includes] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_includes(self, line, match):
+        global SHOW_INCLUDE_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        super().DefaultSection(line, "includes")
+        line = line.split("//")[0].strip()
+        self.includes.append(line)
+        if Debug(SHOW_INCLUDE_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_libraryclasses(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        # Just in case there is some training gunk on the line!
-        line = line.split()[0]
-        libraryclass = LibraryClass(self.section, line, self)
+        # Handle match results: groups 1 required, 2 required)
+        good, items = self.CheckGroups(match, "RR", 3, line)
+        if good:
+            self.libraryclasses.append(( items[0], items[1] ))
+            if Debug(SHOW_LIBRARY_CLASS_ENTRIES): print(f"{self.lineNumber}:{items[0]}|{items[1]}")
 
     # Handle a line in the [PcdsDynamic] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamic(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R R R X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
  
     # Handle a line in the [PcdsDynamicEx] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicex(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R R R X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsFeatureFlag] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsfeatureflag(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R R R X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsFixedAtBuild] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsfixedatbuild(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R R R X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsPatchableInModule] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdspatchableinmodule(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R R R X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [Ppis] section
     # line:  Contents of line
@@ -1208,15 +1075,15 @@ class INFParser(UEFIParser):
                     'buildoptions':    None,
                     'defines':         reDefine,
                     'depex':           None,
-                    'featurepcd':      None,
-                    'fixedpcd':        None,
-                    'guids':           None,
+                    'featurepcd':      rePcds,
+                    'fixedpcd':        rePcds,
+                    'guids':           reEquate,
                     'includes':        None,
-                    'libraryclasses':  None,
+                    'libraryclasses':  reBar,
                     'packages':        None,
-                    'patchpcd':        None,
-                    'pcd':             None,
-                    'pcdex':           None,
+                    'patchpcd':        rePcds,
+                    'pcd':             rePcds,
+                    'pcdex':           rePcds,
                     'ppis':            None,
                     'protocols':       None,
                     'sources':         None,
@@ -1234,14 +1101,15 @@ class INFParser(UEFIParser):
     # returns nothing
     def __init__(self, fileName, referenceName, referenceLine):
         global INFDefines
-        self.reference = [(referenceName, referenceLine)]
-        self.defines   = {}
-        self.depex     = ""
-        self.includes  = []
-        self.sources   = []
-        self.ppis      = []
-        self.protocols = []
-        self.packages  = []
+        self.reference      = [(referenceName, referenceLine)]
+        self.defines        = {}
+        self.depex          = ""
+        self.includes       = []
+        self.sources        = []
+        self.ppis           = []
+        self.protocols      = []
+        self.packages       = []
+        self.libraryclasses = []
         for attr in INFDefines: setattr(self, attr, None)
         # Call cunstructor for parent class
         super().__init__(fileName, self.INFSections)
@@ -1256,24 +1124,19 @@ class INFParser(UEFIParser):
     # returns nothing
     def section_defines(self, line, match):
         global INFDefines
-        # Handle case where match is no good
-        if match == None or match.group(3) == None:
-            self.ReportError(f'Invalid defines format : {line}')
-            return
-        # Get attribute being defined
-        attr  = match.group(3)
-        # Handle case where value is omitted
-        value = "" if match.group(6) == None else match.group(6)
-        # Is it a DEFINE case
-        if match.group(1) != None:
-            self.defines[attr] = value
-        # Make sure it is a supported attribute
-        else:
-            if not attr in INFDefines:
-                self.ReportError(f"Unsupported INF define: {attr}")
-                return
-            setattr(self, attr, value)
-        if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{attr}={value}")
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
+        if good:
+            # Is it a DEFINE case
+            if match.group(2) != None:
+                self.defines[items[0]] = items[1]
+            # Make sure it is a supported attribute
+            else:
+                if not items[0] in INFDefines:
+                    self.ReportError(f"Unsupported INF define: {items[0]}")
+                    return
+                setattr(self, items[0], items[1])
+            if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{items[0]}={items[1]}")
 
     # Handle a line in the [Depex] section
     # line:  Contents of line
@@ -1288,27 +1151,33 @@ class INFParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def section_featurepcd(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O X X X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [FixedPcd] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_fixedpcd(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O X X X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [Guids] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_guids(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        guid = GUID(self.section, line, self)
+        global GUIDs, SHOW_GUID_ENTRIES
+        # Handle match results: groups 1 required, 3 forbidden
+        good, items = self.CheckGroups(match, "R X", 1, line)
+        if good:
+            DB(self, ['guid', 'value'], items, 'guid', GUIDs, SHOW_GUID_ENTRIES)
 
     # Handle a line in the [Includes] section
     # line:  Contents of line
@@ -1325,9 +1194,11 @@ class INFParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def section_libraryclasses(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        libraryclass = LibraryClass(self.section, line, self)
+        # Handle match results: groups 1 required, 3forbidden
+        good, items = self.CheckGroups(match, "R X", 3, line)
+        if good:
+            self.libraryclasses.append(items[0])
+            if Debug(SHOW_LIBRARY_CLASS_ENTRIES): print(f"{self.lineNumber}:{items[0]}")
 
     # Handle a line in the [Packages] section
     # line:  Contents of line
@@ -1346,27 +1217,35 @@ class INFParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def section_patchpcd(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O X X X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
+
 
     # Handle a line in the [Pcd] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcd(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O O X X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'variable'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
+
 
     # Handle a line in the [PcdEx] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdex(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O X X X X", 2, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [Ppis] section
     # line:  Contents of line
@@ -1410,19 +1289,19 @@ class DSCParser(UEFIParser):
                     'defaultstores':         None,
                     'defines':               reDefine,
                     'libraries':             None,
-                    'libraryclasses':        None,
-                    'pcdsdynamic':           None,
-                    'pcdsdynamicdefault':    None,
-                    'pcdsdynamicex':         None,
-                    'pcdsdynamicexdefault':  None,
-                    'pcdsdynamicexhii':      None,
-                    'pcdsdynamicexvpd':      None,
-                    'pcdsdynamichii':        None,
-                    'pcdsdynamicvpd':        None,
-                    'pcdsfeatureflag':       None,
-                    'pcdsfixedatbuild':      None,
-                    'pcdspatchableinmodule': None,
-                    'skuids':                None,
+                    'libraryclasses':        reBar,
+                    'pcdsdynamic':           rePcds,
+                    'pcdsdynamicdefault':    rePcds,
+                    'pcdsdynamicex':         rePcds,
+                    'pcdsdynamicexdefault':  rePcds,
+                    'pcdsdynamicexhii':      rePcds,
+                    'pcdsdynamicexvpd':      rePcds,
+                    'pcdsdynamichii':        rePcds,
+                    'pcdsdynamicvpd':        rePcds,
+                    'pcdsfeatureflag':       rePcds,
+                    'pcdsfixedatbuild':      rePcds,
+                    'pcdspatchableinmodule': rePcds,
+                    'skuids':                reBar,
                     'userextensions':        None,
     }
 
@@ -1435,7 +1314,8 @@ class DSCParser(UEFIParser):
     # process:  Starting conditional processing state (default is True)
     # returns nothing
     def __init__(self, fileName, sections = [], process = True):
-        self.allowSubsections    = False
+        self.allowSubsections = False
+        self.libraries        = []
         # Call cunstructor for parent class
         super().__init__(fileName, self.DSCSections, True, True, ['error'], sections, process)
 
@@ -1543,121 +1423,148 @@ class DSCParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle case where match is no good
-        if match == None or match.group(3) == None:
-            self.ReportError(f'Invalid defines format : {line}')
-            return
-        # Handle case where value is omitted
-        value = "" if match.group(6) == None else match.group(6)
-        self.DefineMacro(match.group(3).strip(), value)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
+        if good:
+          self.DefineMacro(items[0], items[1])
 
     # Handle a line in the [PcdsFeatureFlag] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsfeatureflag(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O X X X X", 4, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsFixedAtBuild] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsfixedatbuild(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 4,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O O X X", 8, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsPatchableInModule] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdspatchableinmodule(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O O X X", 8, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamic] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamic(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O O X X", 8, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicEx] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicex(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O O X X", 8, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicDefault] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicdefault(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6 optional, 8,10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O X X X", 6, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicHII] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamichii(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4,6,8 required, 10,12 optional
+        good, items = self.CheckGroups(match, "RR R R R O O", 12, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicHII] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicvpd(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O O X X", 8, line)
+        if good:
+            if items[4]:
+                DB(self, ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
+            else:
+                DB(self, ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicExDefault] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicexdefault(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O O O X X", 8, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicExHii] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicexhii(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4,6,8 required, 10 optional, 12 forbidden
+        good, items = self.CheckGroups(match, "RR R R R O X", 8, line)
+        if good:
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [PcdsDynamicExVpd] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_pcdsdynamicexvpd(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        pcd = PCD(self.section, line, self)
+        global PCDs, SHOW_PCD_ENTRIES
+        # Handle match results: groups 1,2,4 required, 6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR R O O X X", 8, line)
+        if good:
+            if items[4]:
+                DB(self, ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
+            else:
+                DB(self, ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
     # Handle a line in the [SkuIds] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_skuids(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        sku = SkuId(self.section, line, self)
+        global SkuIds, SHOW_SKUID_ENTRIES
+        # Handle match results: groups 1, 3
+        good, items = self.CheckGroups(match, "R R", 3, line)
+        if good:
+            DB(self, ['value', 'skuid'], items, 'skuid', SkuIds, SHOW_SKUID_ENTRIES)
 
     # Handle a line in the [Libraries] section
     # line:  Contents of line
@@ -1666,18 +1573,20 @@ class DSCParser(UEFIParser):
     def section_libraries(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        super().DefaultSection(line, "libraries")
+        self.libraries.append(line)
+        if Debug(SHOW_LIBRARIES_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_libraryclasses(self, line, match):
-        global INFs
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        libraryclass = LibraryClass(self.section, line, self)
-        INFs.append((self.fileName, self.lineNumber, libraryclass.path.replace('"', '')))
+        global LibraryClasses, SHOW_LIBRARY_CLASS_ENTRIES, INFs
+        # Handle match results: groups 1, 3 required)
+        good, items = self.CheckGroups(match, "R R", 3, line)
+        if good:
+            DB(self, ['name', 'path'], items, 'name', LibraryClasses, SHOW_LIBRARY_CLASS_ENTRIES)
+            INFs.append( (self.fileName, self.lineNumber, items[1].replace('"', '')) )
 
     # The following sections are handled by the defaut handler:
     #    buildoptions
