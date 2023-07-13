@@ -42,14 +42,15 @@ INFDefines = [
 SHOW_COMMENT_SKIPS          = 0x80000000    # Show lines being skipped due to being blank or comments
 SHOW_SKIPPED_ARCHITECTURES  = 0x40000000    # Show lines being skipped due to architectural limitation
 SHOW_SKIPPED_INFS           = 0x20000000    # Show INF files skipped because they have already been processed
-SHOW_CONDITIONAL_SKIPS      = 0x10000000    # Show lines being skipped due to conditionals
-SHOW_CONVERTED_CONDITIONAL  = 0x08000000    # Show conditional after conversion to python
-SHOW_CONDITIONAL_LEVEL      = 0x04000000    # Show conditional level
-SHOW_CONDITIONAL_DIRECTIVES = 0x02000000    # Show lines with conditional directives 
-SHOW_SPECIAL_HANDLERS       = 0x01000000    # Show special handlers
-SHOW_INCLUDE_RETURN         = 0x00800000    # Show when returing from an included files
-SHOW_INCLUDE_DIRECTIVE      = 0x00400000    # Show include directive lines
-SHOW_DEFAULT_SECTION        = 0x00200000    # Show lines handled by default section handler
+SHOW_SKIPPED_DECS           = 0x10000000    # Show INF files skipped because they have already been processed
+SHOW_CONDITIONAL_SKIPS      = 0x08000000    # Show lines being skipped due to conditionals
+SHOW_CONVERTED_CONDITIONAL  = 0x04000000    # Show conditional after conversion to python
+SHOW_CONDITIONAL_LEVEL      = 0x02000000    # Show conditional level
+SHOW_CONDITIONAL_DIRECTIVES = 0x01000000    # Show lines with conditional directives 
+SHOW_SPECIAL_HANDLERS       = 0x00800000    # Show special handlers
+SHOW_INCLUDE_RETURN         = 0x00400000    # Show when returing from an included files
+SHOW_INCLUDE_DIRECTIVE      = 0x00200000    # Show include directive lines
+SHOW_DEFAULT_SECTION        = 0x00100000    # Show lines handled by default section handler
 #
 SHOW_LIBRARIES_ENTRIES      = 0x00008000    # Show include definitions
 SHOW_INCLUDE_ENTRIES        = 0x00004000    # Show include definitions
@@ -76,7 +77,7 @@ DEBUG_SECTIONS              = SHOW_DEFAULT_SECTION + SHOW_PCD_ENTRIES + SHOW_GUI
 DEBUG_SKIPS                 = SHOW_COMMENT_SKIPS + SHOW_CONDITIONAL_SKIPS + SHOW_SKIPPED_ARCHITECTURES
 DEBUG_MINIMAL               = 0x00000001
 DEBUG_NORMAL                = 0x0000000F
-DEBUG_VERBOSE               = 0x0FFFFFFF
+DEBUG_VERBOSE               = 0x07FFFFFF
 DEBUG_ALL                   = 0xFFFFFFFF
 
 # Global Variables
@@ -431,26 +432,32 @@ class UEFIParser:
         global SHOW_FILENAMES, SHOW_CONDITIONAL_SKIPS
         if Debug(SHOW_FILENAMES): print(f"Processing {self.fileName}")
         # Read in the file
-        with open(self.fileName, 'r') as file:
-            content = file.readlines()
-        # Go through the content one at a time
-        self.lineNumber = 0
-        for line in content:
-            self.lineNumber += 1
-            line = self.__removeComment__(line)
-            if not line: continue
-            # Expand macros before parsing
-            line = self.__expandMacros__(line)
-            # Handle directives (if any)
-            if self.__handleDirective__(line):  continue
-            # Conditional processing may indicate to ignore
-            if not self.process:
-                if Debug(SHOW_CONDITIONAL_SKIPS): print(f"{self.lineNumber}:SKIPPED - Conditionally")
-                continue
-            # Look for section change
-            if self.__handleNewSection__(line): continue
-            # Must by a regular line
-            self.__handleIndividualLine__(line)
+        try:
+            with open(self.fileName, 'r') as file:
+                content = file.readlines()
+            # Go through the content one at a time
+            self.lineNumber = 0
+            for line in content:
+                self.lineNumber += 1
+                if self.lineNumber == 64:
+                    if self.fileName == " D:/ROMS/G11/u54/HpeServerCore/HpPlatformsCommon/Features/TpmTxt/TpmDrivers.dsc":
+                        pass
+                line = self.__removeComment__(line)
+                if not line: continue
+                # Expand macros before parsing
+                line = self.__expandMacros__(line)
+                # Handle directives (if any)
+                if self.__handleDirective__(line):  continue
+                # Conditional processing may indicate to ignore
+                if not self.process:
+                    if Debug(SHOW_CONDITIONAL_SKIPS): print(f"{self.lineNumber}:SKIPPED - Conditionally")
+                    continue
+                # Look for section change
+                if self.__handleNewSection__(line): continue
+                # Must by a regular line
+                self.__handleIndividualLine__(line)
+        except PermissionError:
+            pass
 
     # Handle a new conditional
     # returns nothing
@@ -748,7 +755,7 @@ class UEFIParser:
                 if u == ' ': continue   # Skip unused groups
                 g += 1                  # Adjust group index
                 # Get value (take care of case where value was not given and where value is the last one)
-                value = "" if match.group(g) == None else (match.group(last).split('//')[0].strip() if g == last else match.group(g))
+                value = "" if match.group(g) == None else (match.group(last).split(' //')[0].strip() if g == last else match.group(g))
                 # Make sure require groups are present and forbidden groups are not
                 if (u == 'R' and not value) or (u == 'X' and value):
                     self.ReportError(f'Invalid {self.section[0]} format: {line}')
@@ -1779,26 +1786,15 @@ class PlatformInfo:
         print(f"List of PCDs:")
         print(f"-------------")
         for pcds in PCDs:
-            if pcds == "PcdMemSrvidMap" or pcds == "Signature":
-                pass
             print(f"{pcds}:")
-            definition = "        Definition: None"
             for pcd in PCDs[pcds]:
-                # Look for definjitions
-                if pcd.type == "DEC":
-                    print(f"        Definition: {pcd.lineNumber}:{pcd.fileName}")
-                    print(f"            Section: {GetSection(pcd.section)}")
-                    print(f"            Default Value: {pcd.value}\n            Kind: {pcd.kind}\n            Token: {pcd.token}")
-                    definition = None
-                # Look for overrides
-                elif pcd.type == "DSC" and pcd.value != None: 
-                    print(f"        Override: {pcd.lineNumber}:{pcd.fileName}")
-                    print(f"            Section: {GetSection(pcd.section)}")
-                    print(f"            New Value: {pcd.value}")
-                else:
-                    print(f"        Reference {pcd.lineNumber}:{pcd.fileName}")
-                    print(f"            Section: {GetSection(pcd.section)}")
-            if definition != None: print(f"{definition}")
+                print(f"    {pcd.lineNumber}:{pcd.fileName}")
+                print(f"        section: {GetSection(pcd.section)}")
+                for item in dir(pcd):
+                    if not item.startswith("__") and not item in ['lineNumber', 'fileName', 'section', 'pcdname']:
+                        value = getattr(pcd, item)
+                        if type(value) is str and not value: continue
+                        print(f"        {item}: {getattr(pcd,item)}")
         print(f"List of INFs:")
         print(f"-------------")
         for inf in infs:
