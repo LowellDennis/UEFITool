@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 
 # Standard python modules
+import platform
 import os
 import re
 import sys
+from   random import random
 
 # Local modules
 # None
 
 # Constants
+
+# Determine if this is Windows OS
+isWindows  = 'WINDOWS' in platform.platform().upper()
 
 # Regular Expression for matching sections with format "item = [value]"
 # Groups: 1=>item, 3->optional value
@@ -18,9 +23,9 @@ reEquate    = r'^([^=\s]+)\s*(=\s*([^$]+)?$)?'
 # Groups 1=>item, 2=>optional value
 reBuildArgs = r'^-D\s*([^=\s]+)\s*(=\s*([^$]+)?)?$'
 
-# Regular expression for matching sections with format "[DEFINE] item = [value]"
-# Groups 2=>optional DEFINE, 3=>item, 4=optional value
-reDefine    = r'^(([dD][eE][fF][iI][nN][eE])\s+)?([^=\s]+)\s*=\s*([^$]+)?$'
+# Regular expression for matching sections with format "[DEFINE]|[EDK_GLOBAL] item = [value]"
+# Groups 3=>optional DEFINE|EDK_GLOBAL, 5=>item, 6=optional value
+reDefine    = r'^((([dD][eE][fF][iI][nN][eE])|([eE][dD][kK]_[gG][lL][oO][bB][aA][lL]))\s+)?([^=\s]+)\s*=\s*([^$]+)?$'
 
 # Regular expression for matching sections with format "item1 [ | item2]"
 # Groups 1=>library, 3=>optional path
@@ -256,7 +261,7 @@ class UEFIParser:
     # returns nothing
     #
     # NOTES on handlers in child class!
-    #    Child class MAY  provide a handler for "section_<name>"    for each name in sectionInfo.
+    #    Child class MAY  provide a handler for "section_<name>"    for each name in sectionsInfo.
     #    "DefaultSection" is used for any section that  does not have a handler in the child class.
     #    Child class MUST provide a handler for "directive_<name>"  for each name in additionalDirectives.
     #    If no handler is found an error will be generated.
@@ -278,6 +283,8 @@ class UEFIParser:
         self.sections             = sections
         self.process              = process
         # Initialize other needed items
+        self.inSubsection         = False                      # Indicates that no is being processed
+        self.subsections          = None                       # Subsections being processed
         self.hasDirectives        = bool(additionalDirectives) # Indicates if the file supports any directives other than include and conditionals
         self.lineNumber           = 0                          # Current line being processed
         self.commentBlock         = False                      # Indicates if currently processing a comment block
@@ -306,7 +313,7 @@ class UEFIParser:
                 if line.startswith("/*"): self.commentBlock = True
                 return None
         # Remove any trailing comments
-        pattern = """ \#.*|("(?:\\[\S\s]|[^"\\])*"|'(?:\\[\S\s]|[^'\\])*'|[\S\s][^"'#]*))"""
+        pattern = """[ \t]\#.*|("(?:\\[\S\s]|[^"\\])*"|'(?:\\[\S\s]|[^'\\])*'|[\S\s][^"'#]*))"""
         line = re.sub(pattern, "", line)
         line = re.sub(pattern.replace('#',';'), "", line)
         return line.strip()
@@ -356,6 +363,10 @@ class UEFIParser:
         # Look for section header (format "[<sections>]")
         match = re.match(r'\[([^\[\]]+)\]', line)
         if not match: return False
+        # Check for unended subsection
+        if self.inSubsection and bool(self.sections):
+            self.ReportError(f"{self.section[0]} section missing closing brace")
+            self.inSubsection = False
         # Call onexit section handlers (if any)
         if bool(self.sections):
             for section in self.sections:
@@ -390,6 +401,74 @@ class UEFIParser:
             else: self.ReportError(f"Unknown section: {section}")
         return True
 
+    # Call the section handler or the default section handler for the indicated section and line
+    # section: Section which is to be handled
+    # line:    Line    which is to be handled
+    # returns nothing
+    def __dispatchSectionHandler__(self, section, line):
+        # Get the named handler
+        handler = getattr(self, f"section_{section}", None)
+        if handler and callable(handler):
+            # Process the regular expression
+            regex = self.sectionsInfo[section][1]
+            match = match = re.match(regex, line) if regex else None
+            # Call the named handler
+            handler(line, match)
+        # No named handler was available or callable: used default handler
+        else: self.DefaultSection(line, section)
+
+    # Handle subsection process (not call unless section supports subsections)
+    # line: Line which is to be handled
+    def __handleSubsection__(self, line):
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
+        # Handle casse where a subsection is already being processed
+        if self.inSubsection:
+            # Look for end of subsection block
+            if line.endswith("}"):
+                # Signal end of subsection block and subsection
+                self.inSubsection = False
+                self.subsections  = None
+                line              = line[-1].rstrip()
+                if Debug(SHOW_COMMENT_SKIPS): print(f"{self.lineNumber}:SKIPPED - Blank or Comment")
+                return
+            # Look for subsection entry
+            elif "<" in line:
+                # Convert to normal section format
+                line              = line.lower().replace("<", "[").replace(">", "]")
+                # Save current section informarion
+                sections          = self.sections
+                # Don't call exit section handlers
+                self.sections     = []
+                # Handle subsection entry
+                self.__handleNewSection__(line)
+                # Save subsection information
+                self.subsections  = self.sections
+                # Restore the original section info
+                self.sections     = sections
+                return
+            # Handle case where a subsection was alredy entered
+            elif self.subsections:
+                # Save current section info
+                sections          = self.sections
+                # Set subsection info
+                self.sections     = self.subsections
+                # Process the section line
+                self.__handleIndividualLine__(line)
+                # Restore the original section info
+                self.sections     = sections
+                return
+        # Look for entry into a subsection block
+        if line.endswith("{"):
+            # Remove subsection block marker
+            line                  = line[:-1].strip()
+            # Indicate inside of subsection block
+            self.inSubsection     = True
+            # No subsection started yet
+            self.subsections      = None
+        # Handle line within the section
+        self.__dispatchSectionHandler__(self.section[0], line)
+
     # Handles an individual line that is not a directive or section header
     # line: line to be handled
     # returns nothing
@@ -401,14 +480,14 @@ class UEFIParser:
                 # Make sure architecture is supported
                 if self.__sectionSupported__(self.section):
                     self.sectionStr = GetSection(self.section)
-                    handler = getattr(self, f"section_{self.section[0]}", None)
-                    if handler and callable(handler):
-                        regex = self.sectionsInfo[self.section[0]]
-                        if regex == None: handler(line, None)
-                        else:
-                            match = re.match(regex, line)
-                            handler(line, match)
-                    else: self.DefaultSection(line, self.section[0])
+                    # Get base section name
+                    section = self.section[0]
+                    # Are subsections supported by current section
+                    if self.sectionsInfo[section][0]:
+                        # Handle possible subsection
+                        self.__handleSubsection__(line)
+                        return
+                    self.__dispatchSectionHandler__(self.section[0], line)
                 # Else taken care of in __sectionSupported__ method!
         else: self.ReportError(f"Line discovered outside of a section")
 
@@ -439,9 +518,6 @@ class UEFIParser:
             self.lineNumber = 0
             for line in content:
                 self.lineNumber += 1
-                if self.lineNumber == 64:
-                    if self.fileName == " D:/ROMS/G11/u54/HpeServerCore/HpPlatformsCommon/Features/TpmTxt/TpmDrivers.dsc":
-                        pass
                 line = self.__removeComment__(line)
                 if not line: continue
                 # Expand macros before parsing
@@ -755,7 +831,7 @@ class UEFIParser:
                 if u == ' ': continue   # Skip unused groups
                 g += 1                  # Adjust group index
                 # Get value (take care of case where value was not given and where value is the last one)
-                value = "" if match.group(g) == None else (match.group(last).split(' //')[0].strip() if g == last else match.group(g))
+                value = "" if match.group(g) == None or match.group(g).startswith('//') else (match.group(last).split(' //')[0].strip() if g == last else match.group(g))
                 # Make sure require groups are present and forbidden groups are not
                 if (u == 'R' and not value) or (u == 'X' and value):
                     self.ReportError(f'Invalid {self.section[0]} format: {line}')
@@ -769,13 +845,13 @@ class UEFIParser:
         return (noError, values)                             
 
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
-class ArgsParser(UEFIParser):                      # regularExpression
-    BuildArgsSections = { 'environmentvariables':    reEquate,
-                          'hpbuildargs':             reBuildArgs,
-                          'pythonbuildfailscripts':  None,
-                          'pythonprebuildscripts':   None,
-                          'pythonprehpbuildscripts': None,
-                          'pythonpostbuildscripts':  None,
+class ArgsParser(UEFIParser):                      #  subsections?, regularExpression
+    BuildArgsSections = { 'environmentvariables':    (False,         reEquate),
+                          'hpbuildargs':             (False,         reBuildArgs),
+                          'pythonbuildfailscripts':  (False,         None),
+                          'pythonprebuildscripts':   (False,         None),
+                          'pythonprehpbuildscripts': (False,         None),
+                          'pythonpostbuildscripts':  (False,         None),
     }
 
     ###################
@@ -820,8 +896,8 @@ class ArgsParser(UEFIParser):                      # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_hpbuildargs(self, line, match):
-        # Handle match results: groups 2 required, 3 optional
-        good, items = self.CheckGroups(match, " RO", 3, line)
+        # Handle match results: groups 1 required, 3 optional
+        good, items = self.CheckGroups(match, "R O", 3, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -832,13 +908,13 @@ class ArgsParser(UEFIParser):                      # regularExpression
     #     pythonpostbuildscripts
 
 # Class for parsing HPE Chipset files (HpChipsetInfo.txt)
-class ChipsetParser(UEFIParser):          # regularExpression
-    ChipsetSections = { 'binaries':         None,
-                        'hpbuildargs':      reBuildArgs,
-                        'platformpackages': None,
-                        'snaps':            None,
-                        'tagexceptions':    None,
-                        'upatches':         None,
+class ChipsetParser(UEFIParser):          #  subsections?, regularExpression
+    ChipsetSections = { 'binaries':         (False,        None),
+                        'hpbuildargs':      (False,        reBuildArgs),
+                        'platformpackages': (False,        None),
+                        'snaps':            (False,        None),
+                        'tagexceptions':    (False,        None),
+                        'upatches':         (False,        None),
     }
 
     ###################
@@ -873,11 +949,12 @@ class ChipsetParser(UEFIParser):          # regularExpression
     #    tagexceptions
     #    upatches
 
-class FDFParser(UEFIParser): # regularExpression
-    FDFSections = { 'defines': reDefine,
-                    'fd':      None,
-                    'fv':      None,
-                    'rule':    None,
+class FDFParser(UEFIParser): #  subsections?, regularExpression
+    FDFSections = { 'capsule': (False,        None),
+                    'defines': (False,        reDefine),
+                    'fd':      (False,        None),
+                    'fv':      (False,        None),
+                    'rule':    (False,        None),
     }
 
     ###################
@@ -915,8 +992,8 @@ class FDFParser(UEFIParser): # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle match results: groups 3 required, 4 optional
-        good, items = self.CheckGroups(match, "  RO", 4, line)
+        # Handle match results: groups 5 required, 6 optional
+        good, items = self.CheckGroups(match, "    RO", 6, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -926,19 +1003,22 @@ class FDFParser(UEFIParser): # regularExpression
     #    rule
 
 # Class for handling UEFI DEC files
-class DECParser(UEFIParser):               # regularExpression
-    DECSections = { 'defines':               reDefine,
-                    'guids':                 reEquate,
-                    'includes':              None,
-                    'libraryclasses':        reBar,
-                    'pcdsdynamic':           rePcds,
-                    'pcdsdynamicex':         rePcds,
-                    'pcdsfeatureflag':       rePcds,
-                    'pcdsfixedatbuild':      rePcds,
-                    'pcdspatchableinmodule': rePcds,
-                    'ppis':                  None,
-                    'protocols':             None,
-                    'userextensions':        None,
+class DECParser(UEFIParser):               #  subsections, regularExpression
+    DECSections = { 'defines':               (False,       reDefine),
+                    'guids':                 (False,       reEquate),
+                    'includes':              (False,       None),
+                    'libraryclasses':        (False,       reBar),
+                    'pcdsdynamic':           (True,        rePcds),
+                    'pcdsdynamicex':         (True,        rePcds),
+                    'pcdsfeatureflag':       (True,        rePcds),
+                    'pcdsfixedatbuild':      (True,        rePcds),
+                    'pcdspatchableinmodule': (True,        rePcds),
+                    'ppis':                  (False,       None),
+                    'protocols':             (False,       None),
+                    'userextensions':        (False,       None),
+                    # Below are specail section handlers that can only occur when processing a subsection!
+                    'packages':              (False,       None),
+                    'headerfiles':           (False,       None),
     }
 
     ###################
@@ -952,6 +1032,8 @@ class DECParser(UEFIParser):               # regularExpression
         # Call cunstructor for parent class
         self.includes       = []
         self.libraryclasses = []
+        self.packages       = []    # Only used with subsections
+        self.headerfiles    = []    # Only used with subsections
         super().__init__(fileName, self.DECSections)
 
     ####################
@@ -963,8 +1045,8 @@ class DECParser(UEFIParser):               # regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle match results: groups 3 required, 4 optional
-        good, items = self.CheckGroups(match, "  RO", 4, line)
+        # Handle match results: groups 5 required, 6 optional
+        good, items = self.CheckGroups(match, "    RO", 6, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -1018,7 +1100,7 @@ class DECParser(UEFIParser):               # regularExpression
     def section_pcdsdynamicex(self, line, match):
         global PCDs, SHOW_PCD_ENTRIES
         # Handle match results: groups 1,2 required, 4 optional, 6,8,10,12 forbidden
-        good, items = self.CheckGroups(match, "RR R R R X X", 2, line)
+        good, items = self.CheckGroups(match, "RR R 0 0 X X", 5, line)
         if good:
             DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
@@ -1073,28 +1155,60 @@ class DECParser(UEFIParser):               # regularExpression
         line = line.split(" //")[0]
         super().DefaultSection(line, "protocols")
 
+    #############################################
+    # Section handlers (only when inSubsection) #
+    #############################################
+
+    # Handle a line in the [Protocols] section
+    # line:  Contents of line
+    # match: Results of regex match
+    # returns nothing
+    def section_packages(self, line, match):
+        global DECs
+        # Only allow this section handle if in a subsection
+        if not self.inSubsection:
+            self.ReportError('section packages cannot be used outside of braces')
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
+        DECs.append((self.fileName, self.lineNumber, line))
+        self.packages.append(line)
+        if Debug(SHOW_PACKAGES_ENTRIES): print(f"{self.lineNumber}:{line}")
+
+    # Handle a line in the [Protocols] section
+    # line:  Contents of line
+    # match: Results of regex match
+    # returns nothing
+    def section_headerfiles(self, line, match):
+        # Only allow this section handle if in a subsection
+        if not self.inSubsection:
+            self.ReportError('section packages cannot be used outside of braces')
+        # Just in case there a some trailing C style comment on the line (which should be an error)!
+        line = line.split(" //")[0]
+        self.headerfiles.append(line)
+        super().DefaultSection(line, "headerfiles")
+
     # The following sections are handled by the defaut handler:
     #    userextensions
 
 # Class for handling UEFI DEC files
-class INFParser(UEFIParser):
-    INFSections = { 'binaries':        None,
-                    'buildoptions':    None,
-                    'defines':         reDefine,
-                    'depex':           None,
-                    'featurepcd':      rePcds,
-                    'fixedpcd':        rePcds,
-                    'guids':           reEquate,
-                    'includes':        None,
-                    'libraryclasses':  reBar,
-                    'packages':        None,
-                    'patchpcd':        rePcds,
-                    'pcd':             rePcds,
-                    'pcdex':           rePcds,
-                    'ppis':            None,
-                    'protocols':       None,
-                    'sources':         None,
-                    'userextensions':  None,
+class INFParser(UEFIParser):          # subsections, regularExpression 
+    INFSections = { 'binaries':        (False,       None),
+                    'buildoptions':    (False,       None),
+                    'defines':         (False,       reDefine),
+                    'depex':           (False,       None),
+                    'featurepcd':      (False,       rePcds),
+                    'fixedpcd':        (False,       rePcds),
+                    'guids':           (False,       reEquate),
+                    'includes':        (False,       None),
+                    'libraryclasses':  (False,       reBar),
+                    'packages':        (False,       None),
+                    'patchpcd':        (False,       rePcds),
+                    'pcd':             (False,       rePcds),
+                    'pcdex':           (False,       rePcds),
+                    'ppis':            (False,       None),
+                    'protocols':       (False,       None),
+                    'sources':         (False,       None),
+                    'userextensions':  (False,       None),
     }
 
     ###################
@@ -1131,11 +1245,11 @@ class INFParser(UEFIParser):
     # returns nothing
     def section_defines(self, line, match):
         global INFDefines
-        # Handle match results: groups 3 required, 4 optional
-        good, items = self.CheckGroups(match, "  RO", 4, line)
+        # Handle match results: groups 5 required, 6 optional
+        good, items = self.CheckGroups(match, "    RO", 6, line)
         if good:
             # Is it a DEFINE case
-            if match.group(2) != None:
+            if match.group(3) == 'DEFINE':
                 self.defines[items[0]] = items[1]
             # Make sure it is a supported attribute
             else:
@@ -1237,10 +1351,10 @@ class INFParser(UEFIParser):
     # returns nothing
     def section_pcd(self, line, match):
         global PCDs, SHOW_PCD_ENTRIES
-        # Handle match results: groups 1,2 required, 6,8,10,12 forbidden
-        good, items = self.CheckGroups(match, "RR O O X X X", 2, line)
+        # Handle match results: groups 1,2 required, 4,6,8 optional, 10,12 forbidden
+        good, items = self.CheckGroups(match, "RR O O O X X", 8, line)
         if good:
-            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'variable'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
+            DB(self, ['pcdtokenspaceguidname', 'pcdname', 'defaultvalue', 'datumtype', 'token'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
 
     # Handle a line in the [PcdEx] section
@@ -1290,26 +1404,26 @@ class INFParser(UEFIParser):
     #    userextensions
 
 # Class for handling UEFI DSC files
-class DSCParser(UEFIParser):
-    DSCSections = { 'buildoptions':          None,
-                    'components':            None,
-                    'defaultstores':         None,
-                    'defines':               reDefine,
-                    'libraries':             None,
-                    'libraryclasses':        reBar,
-                    'pcdsdynamic':           rePcds,
-                    'pcdsdynamicdefault':    rePcds,
-                    'pcdsdynamicex':         rePcds,
-                    'pcdsdynamicexdefault':  rePcds,
-                    'pcdsdynamicexhii':      rePcds,
-                    'pcdsdynamicexvpd':      rePcds,
-                    'pcdsdynamichii':        rePcds,
-                    'pcdsdynamicvpd':        rePcds,
-                    'pcdsfeatureflag':       rePcds,
-                    'pcdsfixedatbuild':      rePcds,
-                    'pcdspatchableinmodule': rePcds,
-                    'skuids':                reBar,
-                    'userextensions':        None,
+class DSCParser(UEFIParser):                # subsections, regularExpression 
+    DSCSections = { 'buildoptions':          (False,       None),
+                    'components':            (True,        None),
+                    'defaultstores':         (False,       None),
+                    'defines':               (False,       reDefine),
+                    'libraries':             (False,       None),
+                    'libraryclasses':        (False,       reBar),
+                    'pcdsdynamic':           (False,       rePcds),
+                    'pcdsdynamicdefault':    (False,       rePcds),
+                    'pcdsdynamicex':         (False,       rePcds),
+                    'pcdsdynamicexdefault':  (False,       rePcds),
+                    'pcdsdynamicexhii':      (False,       rePcds),
+                    'pcdsdynamicexvpd':      (False,       rePcds),
+                    'pcdsdynamichii':        (False,       rePcds),
+                    'pcdsdynamicvpd':        (False,       rePcds),
+                    'pcdsfeatureflag':       (False,       rePcds),
+                    'pcdsfixedatbuild':      (False,       rePcds),
+                    'pcdspatchableinmodule': (False,       rePcds),
+                    'skuids':                (False,       reBar),
+                    'userextensions':        (False,       None),
     }
 
     ###################
@@ -1321,9 +1435,8 @@ class DSCParser(UEFIParser):
     # process:  Starting conditional processing state (default is True)
     # returns nothing
     def __init__(self, fileName, sections = [], process = True):
-        self.allowSubsections = False
         self.libraries        = []
-        # Call cunstructor for parent class
+        # Call constructor for parent class
         super().__init__(fileName, self.DSCSections, True, True, ['error'], sections, process)
 
     ######################
@@ -1355,21 +1468,6 @@ class DSCParser(UEFIParser):
     # Special handlers #
     ####################
 
-    # [Components] on entry handler
-    # returns nothing
-    def onentry_components(self):
-        # Components section can have subsections within but they must be enclosed in curly braces "{}"
-        self.allowSubsections = False
-        if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: component section entry detected")
-
-    # [Components] on exit handler
-    # returns nothing
-    def onexit_components(self):
-        # Make sure curly braces have been closed
-        if self.allowSubsections:
-            self.ReportError("Component section missing closing brace (})")
-        if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: component section exit detected")
-
     def macro_SUPPORTED_ARCHITECTURES(self, value):
         global SupportedArchitectures
         SupportedArchitectures = value.upper().replace('"', '').split("|")
@@ -1385,32 +1483,6 @@ class DSCParser(UEFIParser):
     # returns nothing
     def section_components(self, line, match):
         global INFs
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        if self.allowSubsections:
-            if line.endswith("}"):
-                self.allowSubsections = False
-                line                  = line[-1].rstrip()
-                if Debug(SHOW_COMMENT_SKIPS): print(f"{self.lineNumber}:SKIPPED - Blank or Comment")
-                return
-            elif "<" in line:
-                line             = line.replace("<", "[").replace(">", "]")
-                sections         = self.sections
-                self.sections    = []
-                self.__handleNewSection__(line)
-                self.subsections = self.sections
-                self.sections    = sections
-                return
-            elif self.subsections:
-                sections        = self.sections
-                self.sections   = self.subsections
-                self.__handleIndividualLine__(line)
-                self.sections   = sections
-                return
-        if line.endswith("{"):
-            line                  = line[:-1].strip()
-            self.allowSubsections = True
-            self.subsections      = None
         # Include the file
         line = line.replace('"', '')
         INFs.append((self.fileName, self.lineNumber, line))
@@ -1430,8 +1502,8 @@ class DSCParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle match results: groups 3 required, 4 optional
-        good, items = self.CheckGroups(match, "  RO", 4, line)
+        # Handle match results: groups 5 required, 6 optional
+        good, items = self.CheckGroups(match, "    RO", 6, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -1603,20 +1675,38 @@ class PlatformInfo:
     ###################
     # Private methods #
     ###################
+    content = []
 
     # Class constructor
     # platform: Platform directory
     # returns nothing
     def __init__(self, platform):
+        global BasePath
         self.platform  = platform
+        # Find the base directory of the platform tree
+        self.__findBase__()
+        self.buildFile = JoinPath(BasePath, 'hpbuild.bat')
         self.argsFile  = JoinPath(platform, "PlatformPkgBuildArgs.txt")
         self.dscFile   = JoinPath(platform, "PlatformPkg.dsc")
         self.decFile   = JoinPath(platform, "PlatformPkg.dec")
         self.fdfFile   = JoinPath(platform, "PlatformPkg.fdf")
-        self.__findBase__()
+        platform = self.platform[-6:-3]
+        build_dir = os.path.join(BasePath, 'Build')
+        self.__setEnvironment__('PLATFORM', platform)
+        self.__setEnvironment__('TARGET', 'DEBUG')
+        self.__setEnvironment__('BUILD_DIR', build_dir)
+        self.__setEnvironment__('WORKSPACE', BasePath)
+        self.__getWorkspace__()
         self.__getPaths__()
         self.__getHpPlatformPkg__()
         self.__processPlatform__()
+
+    # Set environment variable and also save in Macros
+    def __setEnvironment__(self, variable, value):
+        global isWindows
+        SetMacro(variable, value.replace('\\', '/'))
+        if isWindows: value = value.replace('/', '\\')
+        os.environ[variable] = value
 
     # Finds the base directory of the platform tree
     # returns nothing
@@ -1634,32 +1724,48 @@ class PlatformInfo:
             if BasePath == old:
                 Error('Unable to locate base of UEFI platform tree ... exiting!')
                 sys.exit(1)
+        # Get PATH from the environment
+        SetMacro('PATH', os.environ['PATH'].replace('\\', '/'))
 
-        os.environ["WORKSPACE"] = BasePath
+    # Utility form finding a particular line in the argsFile
+    # lookFor: Partial contents of line being sought
+    # returns Line split by ';'
+    # EXITS WITH ERROR IF NOT FOUND OR LINE DOES NOT SPLIT
+    def __findLine__(self, lookFor):
+        # Read in arguments file
+        if not bool(self.content):
+            with open(self.argsFile, 'r') as file:
+                self.content = file.readlines()
+        for line in self.content:
+            if lookFor in line:
+                items = line.strip().split(';', maxsplit=1)
+                if len(items) < 2:
+                    Error('Invaid format in {lookFor} line ... exiting!')
+                    sys.exit(3)
+                return items
+        Error(f'Unable to locate {lookFor} in {self.argsFile}')
+        sys.exit(2)
+
+    def __getWorkspace__(self):
+        global BasePath
+        # Get workpace and prebuild lines from args file
+        workspaceItems = self.__findLine__(';set_platform_workspace')
+        # HpCommon is expected to be in this path!
+        if not 'HpCommon' in workspaceItems[0]:
+            Error(f'Unable to detect path to HpCommon')
+            sys.exit(3)
+        index = workspaceItems[0].index('HpCommon')
+        self.hppython = os.path.abspath(os.path.join(BasePath, workspaceItems[0][0:index]))
+        sys.path.insert(0,self.hppython)
+        # Make workspace path absolute        
+        workspaceArg = os.path.abspath(os.path.join(BasePath, workspaceItems[1].replace("set_platform_workspace", "")[2:-2]))
+        from HpCommon import HpSetPlatformWorkspace
+        HpSetPlatformWorkspace.set_platform_workspace(JoinPath(BasePath, workspaceArg))
 
     # Determines value for PACKAGES_PATH environment variable
     # returns nothing
     def __getPaths__(self):
-        global BasePath, Paths
-        def findWorkspace():
-            # Read in arguments file
-            with open(self.argsFile, 'r') as file:
-                content = file.readlines()
-            for line in content:
-                if "set_platform_workspace" in line:
-                    return line.strip()
-            Error('Unable to locate workspace settings ... exiting!')
-            sys.exit(2)
-        line  = findWorkspace()
-        items = line.split(';', maxsplit=1)
-        pyFile = JoinPath(BasePath, items[0])
-        if len(items) < 2:
-            Error('Invaid format in workspace settings ... exiting!')
-            sys.exit(3)
-        pyArg = items[1].replace("set_platform_workspace", "")[2:-2]
-        sys.path.insert(0, os.path.dirname(pyFile))
-        from HpSetPlatformWorkspace import set_platform_workspace
-        set_platform_workspace(JoinPath(BasePath, pyArg))
+        global Paths
         paths = os.environ["PACKAGES_PATH"].replace("\\", "/")
         Paths = paths.split(";")
         SetMacro("PACKAGE_PATH", Paths)
@@ -1827,5 +1933,6 @@ class PlatformInfo:
             if bool(inf.depex): print(f"    DepEx: {inf.depex}")
 
 # Indicate platform to be processed
-platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
+#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
