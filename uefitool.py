@@ -24,8 +24,12 @@ reEquate    = r'^([^=\s]+)\s*(=\s*([^$]+)?$)?'
 reBuildArgs = r'^-D\s*([^=\s]+)\s*(=\s*([^$]+)?)?$'
 
 # Regular expression for matching sections with format "[DEFINE]|[EDK_GLOBAL] item = [value]"
-# Groups 3=>optional DEFINE|EDK_GLOBAL, 5=>item, 6=optional value
-reDefine    = r'^((([dD][eE][fF][iI][nN][eE])|([eE][dD][kK]_[gG][lL][oO][bB][aA][lL]))\s+)?([^=\s]+)\s*=\s*([^$]+)?$'
+# Groups 3=>optional DEFINE, 3=>item, 4=optional value
+reDefine    = r'^((DEFINE|EDK_GLOBAL)\s+)?([^=\s]+)\s*=\s*([^$]+)?$'
+
+# Regular expression for matching sections with format "[DEFINE]|[EDK_GLOBAL] item = [value]"
+# Groups 3=>optional DEFINE, 3=>item, 4=optional value
+reFile      = r'^FILE\s+([^=\s]+)\s*=\s*([^\s\{]+)\s*\{$'
 
 # Regular expression for matching sections with format "item1 [ | item2]"
 # Groups 1=>library, 3=>optional path
@@ -33,7 +37,7 @@ reBar       = r'^([^\s\|$]+)\s*(\|?\s*([^$]+)?)?'
 
 # Regular expression for matching sections with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
 # Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=?optional item5
-rePcds      = r'^([^\.]+)\.([^\s\|$]+)\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^$]+)?)?'
+rePcds      = r'^([^\.]+)\.\s*([^\s\|$]+)\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^$]+)?)?'
 
 # Items defined in the [Defines] section of an INF file
 INFDefines = [
@@ -41,6 +45,12 @@ INFDefines = [
     "ENTRY_POINT",   "FILE_GUID",                "INF_VERSION", "LIBRARY_CLASS",             "MODULE_UNI_FILE",
     "PCD_IS_DRIVER", "PI_SPECIFICATION_VERSION", "MODULE_TYPE", "UEFI_HII_RESOURCE_SECTION", "UEFI_SPECIFICATION_VERSION",
     "UNLOAD_IMAGE",  "VERSION_STRING",
+]
+
+# Items defiend in FV sections of an FDF file
+FDFDefines = [
+    "BlockSize", "NumBlocks", "FvAlignment", "ERASE_POLARITY", "MEMORY_MAPPED", "STICKY_WRITE", "LOCK_CAP", "LOCK_STATUS", "WRITE_DISABLED_CAP", "WRITE_ENABLED_CAP", "WRITE_STATUS",
+    "WRITE_LOCK_CAP", "WRITE_LOCK_STATUS", "READ_DISABLED_CAP", "READ_ENABLED_CAP", "READ_STATUS", "READ_LOCK_CAP", "READ_LOCK_STATUS", "FvNameGuid", "FvBaseAddress", "FvForceRebase"
 ]
 
 # DEBUG Constants
@@ -96,11 +106,12 @@ GUIDs                   = {}
 SkuIds                  = {}
 DefaultStores           = {}
 DSCs                    = {}
+Files                   = {}
 DECs                    = []
 INFs                    = []
 FDFs                    = []
 SupportedArchitectures  = []
-DebugLevel              = DEBUG_ALL
+DebugLevel              = DEBUG_MINIMAL
 
 # Debug output checker
 # check: Debug item to check
@@ -160,7 +171,7 @@ def GetMacroValue(dsc, macro):
 def FindPath(partial):
     global Paths
     # First try path as-is
-    if os.path.exists(partial): return partial
+    if os.path.exists(partial.replace('/', "\\")): return os.path.abspath(partial)
     # Try partial appended to each path in Paths
     for p in Paths:
         file = JoinPath(p, partial)
@@ -283,6 +294,9 @@ class UEFIParser:
         self.sections             = sections
         self.process              = process
         # Initialize other needed items
+        self.processGuided        = None                       # Indicates that no guided descriptor is being processed
+        self.processFile          = None                       # Indicates that no file descriptor is being processed
+        self.processApriori       = None                       # Indicates that no apriori is being processed
         self.inSubsection         = False                      # Indicates that no is being processed
         self.subsections          = None                       # Subsections being processed
         self.hasDirectives        = bool(additionalDirectives) # Indicates if the file supports any directives other than include and conditionals
@@ -425,7 +439,7 @@ class UEFIParser:
         # Handle casse where a subsection is already being processed
         if self.inSubsection:
             # Look for end of subsection block
-            if line.endswith("}"):
+            if line.endswith("}") and self.inSubsection:
                 # Signal end of subsection block and subsection
                 self.inSubsection = False
                 self.subsections  = None
@@ -459,7 +473,7 @@ class UEFIParser:
                 self.sections     = sections
                 return
         # Look for entry into a subsection block
-        if line.endswith("{"):
+        if line.endswith("{") and not line.startswith("FILE"):
             # Remove subsection block marker
             line                  = line[:-1].strip()
             # Indicate inside of subsection block
@@ -469,12 +483,92 @@ class UEFIParser:
         # Handle line within the section
         self.__dispatchSectionHandler__(self.section[0], line)
 
+    def __handleAprioriList__(self, line):
+        if line == '}':
+            self.processApriori = None
+        else:
+            self.__dispatchSectionHandler__(self.section[0], line)
+
+    def __handleGuidedDescriptor__(self, line):
+        # Handle end of file descriptor
+        if line == '}':
+            guid = self.processGuided['GUIDED']
+            self.processFile[guid] = self.processGuided
+            self.processGuided = None
+        else:
+            items = line.split(maxsplit=1)
+            kind  = items[0].upper()
+            self.processGuided[kind] = '' if len(items) == 1 else ' '.join(items[1].split())
+
+    def __handleFileDescriptor__(self, line):
+        global Files
+        # Handle end of file descriptor
+        if line == '}':
+            guid = self.processFile['GUID']
+            if guid in Files:
+                file = Files[guid]
+                for item in self.processFile:
+                    file[item] = self.processFile[item]
+            else: Files[guid] = self.processFile
+            self.processFile = None
+        else:
+            # See what kind of line this is
+            items = line.split(maxsplit=1)
+            kind  = items[0].upper()
+            # Look for GUIDED SECTION
+            if kind == 'SECTION' and 'GUIDED' in line:
+                if len(items) == 1 or not items[1].endswith('{'):
+                    self.ReportError(f"Unsupported guided section format: {line}")
+                    return
+                # Remove trailing '{' and GUIDED from rest of line
+                items[1] = items[1][:-1].replace('GUIDED', '')
+                # Tokenize rest of line
+                items = items[1].split()
+                guided = { "GUIDED": items[0] }
+                # See if we have any attributes
+                if len(items) > 1:
+                    # Make sure attributes are properly paired
+                    if (len(items) - 1) % 3 != 0:
+                        self.ReportError(f'Bad format for guided section linee: {line}')
+                        return
+                    # Make sure attributes are properly formatted
+                    for idx in range(2, len(items), 3):
+                        if items[idx] != '=':
+                            self.ReportError(f'Bad format for guided section linee: {line}')
+                            return
+                    # Add attributes to inf
+                    for idx in range(1, len(items), 3):
+                        guided[items[idx]] = items[idx+2]
+                self.processGuided = guided
+                return
+            # Look for COMPRESS lines
+            elif kind == 'COMPRESS':
+                return
+            # Look for GUIDED lines
+            elif kind == 'GUIDED':
+                if len(items) == 1 or not items[1].endswith('{'):
+                    self.ReportError(f"Unsupported guidded section format: {line}")
+                    return
+                self.processGuided = { "GUID": items[1].split('{')[0] }
+                return
+            # Handle all other kinds of lines
+            self.processFile[kind] = '' if len(items) == 1 else ' '.join(items[1].split())
+
     # Handles an individual line that is not a directive or section header
     # line: line to be handled
     # returns nothing
     def __handleIndividualLine__(self, line):
+        # See if a apriori  is being processed
+        if self.processApriori:
+            self.__handleAprioriList__(line)
+        # See if a guidded descriptor is being processed
+        elif self.processGuided:
+            self.__handleGuidedDescriptor__(line)
+        # See if a file descriptor is being processed
+        elif self.processFile:
+            self.__handleFileDescriptor__(line)
         # Lines outside of a section are not allowed
-        if bool(self.sections):
+        elif bool(self.sections):
             # Process line inside of each of the current sections
             for self.section in self.sections:
                 # Make sure architecture is supported
@@ -489,7 +583,21 @@ class UEFIParser:
                         return
                     self.__dispatchSectionHandler__(self.section[0], line)
                 # Else taken care of in __sectionSupported__ method!
-        else: self.ReportError(f"Line discovered outside of a section")
+        else:
+            # Allow DEFINE equates outside of sections
+            match = re.match(reDefine, line)
+            if match:
+                if match.group(2) != 'DEFINE':
+                    self.ReportError(f"Unsupported line discovered outside of a section")
+                    return
+                self.DefineMacro(match.group(3), match.group(4))
+                return
+            # Allow FILE definitions outside of sections
+            match = re.match(reFile, line)
+            if not match:
+                self.ReportError(f"Unsupported line discovered outside of a section")
+                return
+            self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
 
     # Expandes all macros within a line
     # line: line in which macros are to be expanded
@@ -518,6 +626,8 @@ class UEFIParser:
             self.lineNumber = 0
             for line in content:
                 self.lineNumber += 1
+                if (self.lineNumber, self.fileName) == (56, "D:/ROMS/G11/a55/HpeServerCore/HpPlatformsCommon/Families/AmdCommon/FVSECPEI/HpApriori.fdf"):
+                    pass
                 line = self.__removeComment__(line)
                 if not line: continue
                 # Expand macros before parsing
@@ -842,7 +952,7 @@ class UEFIParser:
                 # We got through all of the groups without and error
                 noError = True
         # Return the results
-        return (noError, values)                             
+        return (noError, values)
 
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
 class ArgsParser(UEFIParser):                      #  subsections?, regularExpression
@@ -937,8 +1047,8 @@ class ChipsetParser(UEFIParser):          #  subsections?, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_hpbuildargs(self, line, match):
-        # Handle match results: groups 2 required, 3 optional
-        good, items = self.CheckGroups(match, " RO", 3, line)
+        # Handle match results: groups 1 required, 3 optional
+        good, items = self.CheckGroups(match, "R O", 3, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -953,7 +1063,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     FDFSections = { 'capsule': (False,        None),
                     'defines': (False,        reDefine),
                     'fd':      (False,        None),
-                    'fv':      (False,        None),
+                    'fv':      (True,         None),
                     'rule':    (False,        None),
     }
 
@@ -965,7 +1075,12 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # filename: File to parse
     # returns nothing
     def __init__(self, fileName):
+        global FDFDefines
         # Call cunstructor for parent class
+        self.defines = {}
+        self.infs    = []
+        self.apriori = {}
+        for item in FDFDefines: self.defines[item] = None
         super().__init__(fileName, self.FDFSections, True, True)
 
     ######################
@@ -978,7 +1093,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     def directive_include(self, line):
         def includeHandler(file):
             if file.lower().endswith(".dsc"):
-                dsc = DSCParser(file)
+                dsc = DSCParser(file, [], True)
             else:    
                 fdf = FDFParser(file)
         self.IncludeFile(line, includeHandler)
@@ -992,10 +1107,80 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle match results: groups 5 required, 6 optional
-        good, items = self.CheckGroups(match, "    RO", 6, line)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
           self.DefineMacro(items[0], items[1])
+
+    # Handle a line in the [Defines] section
+    # line:  Contents of line
+    # match: Results of regex match
+    # returns nothing
+    def section_fv(self, line, match):
+        global FDFDefines
+        def HandleINF():
+            temp = line.replace('INF', '').lstrip()
+            if temp == '': return False
+            # Split line into tokens
+            items = temp.split()
+            # Path to INF file is always the last token
+            inf = { 'FILE': items[-1] }
+            # See if we have any attributes
+            if len(items) > 1:
+                # Make sure attributes are properly paired
+                if (len(items) - 1) % 3 != 0: return False
+                # Make sure attributes are properly formatted
+                for idx in range(1, len(items) - 1, 3):
+                    if items[idx] != '=': return False
+                # Add attributes to inf
+                for idx in range(0, len(items) - 1, 3):
+                    inf[items[idx]] = items[idx+2]
+            if self.processApriori == None: self.infs.append(inf)
+            else:
+                self.apriori[self.processApriori].append(inf)
+            return True
+        # Get first token on the line
+        define = False
+        items = line.split(maxsplit=1)
+        kind  = items[0].upper()
+        # Handle INF lines
+        # Format: INF [attr1 = value1 [attr2 = value2 [...]]] path
+        if kind == "INF":
+            if not HandleINF():
+                self.ReportError(f'Bad format for INF line: {line}')
+            return
+        # Handle FILE lines
+        elif kind == "FILE":
+            match = re.match(reFile, line)
+            if not match:
+                self.ReportError(f"Bad format for FILE line: {line}")
+            else: self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
+            return
+        # Handle APRIORI lines
+        elif kind == "APRIORI":
+            if len(items) != 2:
+                self.ReportError(f"Bad format for APRIORI line: {line}")
+                return
+            self.processApriori               = items[1].upper()
+            self.apriori[self.processApriori] = []
+            return
+        # Handle DEFINE lines
+        elif kind == "DEFINE":
+            define = True
+            line = line.replace('DEFINE', '').lstrip()
+            # This is intended to fall through
+        # Should be an equate!
+        match = re.match(reEquate, line)
+        good, items = self.CheckGroups(match, "RR", 2, line)
+        if good:
+            if define:
+                self.DefineMacro(items[0], items[1])
+            else:
+                if not items[0] in FDFDefines:
+                    self.ReportError(f'Unsupported FV define: {items[0]}')
+                self.defines[items[0]] = items[1]
+            return
+        # else handled in CheckGroups
 
     # The following sections are handled by the defaut handler:
     #    fd
@@ -1045,8 +1230,8 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle match results: groups 5 required, 6 optional
-        good, items = self.CheckGroups(match, "    RO", 6, line)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -1245,11 +1430,11 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # returns nothing
     def section_defines(self, line, match):
         global INFDefines
-        # Handle match results: groups 5 required, 6 optional
-        good, items = self.CheckGroups(match, "    RO", 6, line)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
             # Is it a DEFINE case
-            if match.group(3) == 'DEFINE':
+            if match.group(2) == 'DEFINE':
                 self.defines[items[0]] = items[1]
             # Make sure it is a supported attribute
             else:
@@ -1407,7 +1592,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
 class DSCParser(UEFIParser):                # subsections, regularExpression 
     DSCSections = { 'buildoptions':          (False,       None),
                     'components':            (True,        None),
-                    'defaultstores':         (False,       None),
+                    'defaultstores':         (False,       reBar),
                     'defines':               (False,       reDefine),
                     'libraries':             (False,       None),
                     'libraryclasses':        (False,       reBar),
@@ -1493,17 +1678,20 @@ class DSCParser(UEFIParser):                # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defaultstores(self, line, match):
-        # Just in case there a some trailing C style comment on the line (which should be an error)!
-        line = line.split(" //")[0]
-        store = DefaultStore(self.section, line, self)
+        global DefaultStores, SHOW_DEFAULT_STORE_ENTRIES
+        # Handle match results: groups 1, 3 required)
+        good, items = self.CheckGroups(match, "R R", 3, line)
+        if good:
+            DB(self, ['name', 'value'], items, 'name', DefaultStores, SHOW_DEFAULT_STORE_ENTRIES)
+
 
     # Handle a line in the [Defines] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        # Handle match results: groups 5 required, 6 optional
-        good, items = self.CheckGroups(match, "    RO", 6, line)
+        # Handle match results: groups 3 required, 4 optional
+        good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
           self.DefineMacro(items[0], items[1])
 
@@ -1616,7 +1804,7 @@ class DSCParser(UEFIParser):                # subsections, regularExpression
     def section_pcdsdynamicexhii(self, line, match):
         global PCDs, SHOW_PCD_ENTRIES
         # Handle match results: groups 1,2,4,6,8 required, 10 optional, 12 forbidden
-        good, items = self.CheckGroups(match, "RR R R R O X", 8, line)
+        good, items = self.CheckGroups(match, "RR R R R O O", 12, line)
         if good:
             DB(self, ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue'], items, 'pcdname', PCDs, SHOW_PCD_ENTRIES)
 
@@ -1685,6 +1873,8 @@ class PlatformInfo:
         self.platform  = platform
         # Find the base directory of the platform tree
         self.__findBase__()
+        savedDir = os.getcwd()
+        os.chdir(BasePath)
         self.buildFile = JoinPath(BasePath, 'hpbuild.bat')
         self.argsFile  = JoinPath(platform, "PlatformPkgBuildArgs.txt")
         self.dscFile   = JoinPath(platform, "PlatformPkg.dsc")
@@ -1700,6 +1890,7 @@ class PlatformInfo:
         self.__getPaths__()
         self.__getHpPlatformPkg__()
         self.__processPlatform__()
+        os.chdir(savedDir)
 
     # Set environment variable and also save in Macros
     def __setEnvironment__(self, variable, value):
@@ -1931,8 +2122,12 @@ class PlatformInfo:
                 for protocol in inf.protocols:
                     print(f"        {protocol}")
             if bool(inf.depex): print(f"    DepEx: {inf.depex}")
-
+        print(f"List of Files:")
+        print(f"--------------")
+        for file in Files:
+            print(file)
+            
 # Indicate platform to be processed
 platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+#platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
