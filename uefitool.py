@@ -169,13 +169,13 @@ def GetMacroValue(dsc, macro):
 # partial: partial path for whcihc to search
 # returns full path or None if full path could not be found
 def FindPath(partial):
-    global Paths
+    global BasePath, Paths
     # First try path as-is
-    if os.path.exists(partial.replace('/', "\\")): return os.path.abspath(partial)
+    if os.path.exists(partial.replace('/', "\\")): return partial
     # Try partial appended to each path in Paths
     for p in Paths:
         file = JoinPath(p, partial)
-        if os.path.exists(file): return file
+        if os.path.exists(file): return os.path.relpath(file, BasePath).replace('\\', '/')
     return None
 
 # Add an entry to the database
@@ -1879,15 +1879,14 @@ class PlatformInfo:
     def __init__(self, platform):
         global BasePath
         self.platform  = platform
-        # Find the base directory of the platform tree
         self.__findBase__()
         savedDir = os.getcwd()
         os.chdir(BasePath)
-        self.buildFile = JoinPath(BasePath, 'hpbuild.bat')
-        self.argsFile  = JoinPath(platform, "PlatformPkgBuildArgs.txt")
-        self.dscFile   = JoinPath(platform, "PlatformPkg.dsc")
-        self.decFile   = JoinPath(platform, "PlatformPkg.dec")
-        self.fdfFile   = JoinPath(platform, "PlatformPkg.fdf")
+        self.platform  = os.path.relpath(platform, BasePath).replace('\\', '/')
+        self.argsFile  = JoinPath(self.platform, "PlatformPkgBuildArgs.txt")
+        self.dscFile   = JoinPath(self.platform, "PlatformPkg.dsc")
+        self.decFile   = JoinPath(self.platform, "PlatformPkg.dec")
+        self.fdfFile   = JoinPath(self.platform, "PlatformPkg.fdf")
         platform = self.platform[-6:-3]
         build_dir = os.path.join(BasePath, 'Build')
         self.__setEnvironment__('PLATFORM', platform)
@@ -1991,6 +1990,11 @@ class PlatformInfo:
                 sys.exit(4)
         SetMacro("HP_PLATFORM_PKG", hpPlatformPkg)
     
+    def sortedKeys(self, dict):
+        keys = list(dict.keys())
+        keys.sort()
+        return keys
+
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
@@ -2055,10 +2059,10 @@ class PlatformInfo:
         print(f"Supported Architectures: {','.join(SupportedArchitectures)}")
         print(f"List of Macros:")
         print(f"---------------")
-        for macro in Macros: print(f"{macro}={Macros[macro]}")
+        for macro in self.sortedKeys(Macros): print(f"{macro}={Macros[macro]}")
         print(f"List of LibraryClasses:")
         print(f"-----------------------")
-        for lcs in LibraryClasses:
+        for lcs in self.sortedKeys(LibraryClasses):
             print(f"{lcs}:")
             for lc in LibraryClasses[lcs]:
                 print(f"    {lc.lineNumber}:{lc.fileName}")
@@ -2066,7 +2070,7 @@ class PlatformInfo:
                 print(f"        Path: {lc.path}")
         print(f"List of GUIDS:")
         print(f"--------------")
-        for guids in GUIDs:
+        for guids in self.sortedKeys(GUIDs):
             print(f"{guids}:")
             for guid in GUIDs[guids]:
                 print(f"    {guid.lineNumber}:{guid.fileName}")
@@ -2074,7 +2078,7 @@ class PlatformInfo:
                 print(f"        Value: {guid.value}")
         print(f"List of SkuIds:")
         print(f"---------------")
-        for skuids in SkuIds:
+        for skuids in self.sortedKeys(SkuIds):
             print(f"{skuids}:")
             for skuid in SkuIds[skuids]:
                 print(f"    {skuid.lineNumber}:{skuid.fileName}")
@@ -2082,7 +2086,7 @@ class PlatformInfo:
                 print(f"        Value: {skuid.value}")
         print(f"List of DefaultStores:")
         print(f"---------------------")
-        for dfs in DefaultStores:
+        for dfs in self.sortedKeys(DefaultStores):
             print(f"{dfs}:")
             for df in DefaultStores[dfs]:
                 print(f"    {df.lineNumber}:{df.fileName}")
@@ -2090,7 +2094,7 @@ class PlatformInfo:
                 print(f"        Value: {df.value}")
         print(f"List of PCDs:")
         print(f"-------------")
-        for pcds in PCDs:
+        for pcds in self.sortedKeys(PCDs):
             print(f"{pcds}:")
             for pcd in PCDs[pcds]:
                 print(f"    {pcd.lineNumber}:{pcd.fileName}")
