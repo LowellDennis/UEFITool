@@ -29,7 +29,7 @@ reDefine    = r'^((DEFINE|EDK_GLOBAL)\s+)?([^=\s]+)\s*=\s*([^$]+)?$'
 
 # Regular expression for matching sections with format "[DEFINE]|[EDK_GLOBAL] item = [value]"
 # Groups 3=>optional DEFINE, 3=>item, 4=optional value
-reFile      = r'^FILE\s+([^=\s]+)\s*=\s*([^\s\{]+)\s*\{$'
+reFile      = r'^FILE\s+([^=\s]+)\s*=\s*([^\s\{]+)\s*(CHECKSUM)?\s*\{'
 
 # Regular expression for matching sections with format "item1 [ | item2]"
 # Groups 1=>library, 3=>optional path
@@ -380,6 +380,7 @@ class UEFIParser:
         # Check for unended subsection
         if self.inSubsection and bool(self.sections):
             self.ReportError(f"{self.section[0]} section missing closing brace")
+            #print(f"{self.lineNumber}:{self.fileName} Setting insubsection to FALSE!")
             self.inSubsection = False
         # Call onexit section handlers (if any)
         if bool(self.sections):
@@ -441,6 +442,7 @@ class UEFIParser:
             # Look for end of subsection block
             if line.endswith("}") and self.inSubsection:
                 # Signal end of subsection block and subsection
+                #print(f"{self.lineNumber}:{self.fileName} Setting insubsection to FALSE!")
                 self.inSubsection = False
                 self.subsections  = None
                 line              = line[-1].rstrip()
@@ -473,10 +475,12 @@ class UEFIParser:
                 self.sections     = sections
                 return
         # Look for entry into a subsection block
-        if line.endswith("{") and not line.startswith("FILE"):
+        token = line.split(maxsplit=1)[0].upper()
+        if line.endswith("{") and not token in ['APRIORI', 'FILE']:
             # Remove subsection block marker
             line                  = line[:-1].strip()
             # Indicate inside of subsection block
+            #print(f"{self.lineNumber}:{self.fileName} Setting insubsection to TRUE! {token}")
             self.inSubsection     = True
             # No subsection started yet
             self.subsections      = None
@@ -626,8 +630,6 @@ class UEFIParser:
             self.lineNumber = 0
             for line in content:
                 self.lineNumber += 1
-                if (self.lineNumber, self.fileName) == (56, "D:/ROMS/G11/a55/HpeServerCore/HpPlatformsCommon/Families/AmdCommon/FVSECPEI/HpApriori.fdf"):
-                    pass
                 line = self.__removeComment__(line)
                 if not line: continue
                 # Expand macros before parsing
@@ -1154,7 +1156,13 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
             match = re.match(reFile, line)
             if not match:
                 self.ReportError(f"Bad format for FILE line: {line}")
-            else: self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
+            else:
+                self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
+                if match.group(3) != None:
+                    if match.group(3) == 'CHECKSUM':
+                        self.processFile['CHECKSUM'] = 'TRUE'
+                    elif match.group(3) != '':
+                        pass
             return
         # Handle APRIORI lines
         elif kind == "APRIORI":
@@ -2128,6 +2136,6 @@ class PlatformInfo:
             print(file)
             
 # Indicate platform to be processed
-platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-#platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
+platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
