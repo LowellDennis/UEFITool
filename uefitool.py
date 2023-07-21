@@ -445,7 +445,6 @@ class UEFIParser:
                 #print(f"{self.lineNumber}:{self.fileName} Setting insubsection to FALSE!")
                 self.inSubsection = False
                 self.subsections  = None
-                line              = line[-1].rstrip()
                 if Debug(SHOW_COMMENT_SKIPS): print(f"{self.lineNumber}:SKIPPED - Blank or Comment")
                 return
             # Look for subsection entry
@@ -487,40 +486,65 @@ class UEFIParser:
         # Handle line within the section
         self.__dispatchSectionHandler__(self.section[0], line)
 
+    # Handles items in an apriori list
+    # line: Line to handle
+    # returns nothing
     def __handleAprioriList__(self, line):
+        # Look for end of list
         if line == '}':
+            # Indicate that list is done
             self.processApriori = None
+            if Debug(SHOW_COMMENT_SKIPS): print(f"{self.lineNumber}:SKIPPED - Blank or Comment")
         else:
+            # Otherwise process it normally
             self.__dispatchSectionHandler__(self.section[0], line)
 
+    # Handles items within a guided descriptor
+    # line: Line to handle
+    # returns nothing
     def __handleGuidedDescriptor__(self, line):
-        # Handle end of file descriptor
+        # Look for end of guided descriptor
         if line == '}':
+            # Add guided information to file info
             guid = self.processGuided['GUIDED']
             self.processFile[guid] = self.processGuided
+            # Indicate that guided decriptor is done
             self.processGuided = None
+            if Debug(SHOW_COMMENT_SKIPS): print(f"{self.lineNumber}:SKIPPED - Blank or Comment")
         else:
+            # Otherwise add information on line to guided info
             items = line.split(maxsplit=1)
             kind  = items[0].upper()
             self.processGuided[kind] = '' if len(items) == 1 else ' '.join(items[1].split())
 
+    # Handles items within a guided descriptor
+    # line: Line to handle
+    # returns nothing
     def __handleFileDescriptor__(self, line):
         global Files
-        # Handle end of file descriptor
+        # Look for end of file descriptor
         if line == '}':
+            # Get file descriptor
             guid = self.processFile['GUID']
+            # See if it is already in the Files list
             if guid in Files:
+                # Get the current file decscriptor
                 file = Files[guid]
+                # Update it with now information
                 for item in self.processFile:
                     file[item] = self.processFile[item]
+            # Otherwise add now file descriptor
             else: Files[guid] = self.processFile
+            # Indicate file descriptor processing is done
             self.processFile = None
+            if Debug(SHOW_COMMENT_SKIPS): print(f"{self.lineNumber}:SKIPPED - Blank or Comment")
         else:
             # See what kind of line this is
             items = line.split(maxsplit=1)
             kind  = items[0].upper()
             # Look for GUIDED SECTION
             if kind == 'SECTION' and 'GUIDED' in line:
+                # Make sure it is properly formatted
                 if len(items) == 1 or not items[1].endswith('{'):
                     self.ReportError(f"Unsupported guided section format: {line}")
                     return
@@ -543,6 +567,7 @@ class UEFIParser:
                     # Add attributes to inf
                     for idx in range(1, len(items), 3):
                         guided[items[idx]] = items[idx+2]
+                # Indicate need to process guided descriptor
                 self.processGuided = guided
                 return
             # Look for COMPRESS lines
@@ -550,9 +575,11 @@ class UEFIParser:
                 return
             # Look for GUIDED lines
             elif kind == 'GUIDED':
+                # Make sure it is properly formatted
                 if len(items) == 1 or not items[1].endswith('{'):
                     self.ReportError(f"Unsupported guidded section format: {line}")
                     return
+                # Indicate need to process guided descriptor
                 self.processGuided = { "GUID": items[1].split('{')[0] }
                 return
             # Handle all other kinds of lines
@@ -591,9 +618,11 @@ class UEFIParser:
             # Allow DEFINE equates outside of sections
             match = re.match(reDefine, line)
             if match:
+                # Make sure it is a DEFINE
                 if match.group(2) != 'DEFINE':
                     self.ReportError(f"Unsupported line discovered outside of a section")
                     return
+                # Process definiiton
                 self.DefineMacro(match.group(3), match.group(4))
                 return
             # Allow FILE definitions outside of sections
@@ -601,6 +630,7 @@ class UEFIParser:
             if not match:
                 self.ReportError(f"Unsupported line discovered outside of a section")
                 return
+            # Indicate need to process file cescriptor
             self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
 
     # Expandes all macros within a line
@@ -645,7 +675,7 @@ class UEFIParser:
                 # Must by a regular line
                 self.__handleIndividualLine__(line)
         except PermissionError:
-            pass
+            self.ReportError(f"Unexpected error occured attempting to open file: {self.fileName}")
 
     # Handle a new conditional
     # returns nothing
