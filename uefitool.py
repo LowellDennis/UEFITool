@@ -738,7 +738,7 @@ class UEFIParser:
             # Try to interpret it
             result = eval(result)
         except Exception:
-            pass
+            pass            # OK to do notfing here (means result can't be evaluated "as is")
         # Handle if condition
         if kind == 'If':
             try:
@@ -758,7 +758,7 @@ class UEFIParser:
                     # Try to interpret it
                     result = eval(result)
                 except:
-                    pass
+                    pass    # Ok to do nothing here (means result can't be evaluated any furhter)
                 # Return result
                 return result if type(result) is bool else result.upper() == "TRUE"
         # Handle ifdef condition
@@ -1108,11 +1108,12 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # returns nothing
     def __init__(self, fileName):
         global FDFDefines
+        # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
+        self.DEFINES = {}
+        self.INFS    = []
+        self.APRIORI = {}
         # Call cunstructor for parent class
-        self.defines = {}
-        self.infs    = []
-        self.apriori = {}
-        for item in FDFDefines: self.defines[item] = None
+        for item in FDFDefines: self.DEFINES[item] = None
         super().__init__(fileName, self.FDFSections, True, True)
 
     ######################
@@ -1167,9 +1168,9 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                 # Add attributes to inf
                 for idx in range(0, len(items) - 1, 3):
                     inf[items[idx]] = items[idx+2]
-            if self.processApriori == None: self.infs.append(inf)
+            if self.processApriori == None: self.INFS.append(inf)
             else:
-                self.apriori[self.processApriori].append(inf)
+                self.APRIORI[self.processApriori].append(inf)
             return True
         # Get first token on the line
         define = False
@@ -1192,7 +1193,9 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                     if match.group(3) == 'CHECKSUM':
                         self.processFile['CHECKSUM'] = 'TRUE'
                     elif match.group(3) != '':
-                        pass
+                        pass        # OK to do nothing here (means match.group(3) was not matched to anything useful)
+                    else:
+                        pass        # TBD (Not sure what else match.group(3) could be!!!)
             return
         # Handle APRIORI lines
         elif kind == "APRIORI":
@@ -1200,7 +1203,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                 self.ReportError(f"Bad format for APRIORI line: {line}")
                 return
             self.processApriori               = items[1].upper()
-            self.apriori[self.processApriori] = []
+            self.APRIORI[self.processApriori] = []
             return
         # Handle DEFINE lines
         elif kind == "DEFINE":
@@ -1216,7 +1219,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
             else:
                 if not items[0] in FDFDefines:
                     self.ReportError(f'Unsupported FV define: {items[0]}')
-                self.defines[items[0]] = items[1]
+                self.DEFINES[items[0]] = items[1]
             return
         # else handled in CheckGroups
 
@@ -1252,11 +1255,12 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
     # filename: File to parse
     # returns nothing
     def __init__(self, fileName):
+        # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
+        self.INCLUDES       = []
+        self.LIBRARYCLASSES = []
+        self.PACKAGES       = []    # Only used with subsections
+        self.HEADERFILES    = []    # Only used with subsections
         # Call cunstructor for parent class
-        self.includes       = []
-        self.libraryclasses = []
-        self.packages       = []    # Only used with subsections
-        self.headerfiles    = []    # Only used with subsections
         super().__init__(fileName, self.DECSections)
 
     ####################
@@ -1291,7 +1295,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
         global SHOW_INCLUDE_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split("//")[0].strip()
-        self.includes.append(line)
+        self.INCLUDES.append(line)
         if Debug(SHOW_INCLUDE_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
@@ -1302,7 +1306,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
         # Handle match results: groups 1 required, 2 required)
         good, items = self.CheckGroups(match, "RR", 3, line)
         if good:
-            self.libraryclasses.append(( items[0], items[1] ))
+            self.LIBRARYCLASSES.append(( items[0], items[1] ))
             if Debug(SHOW_LIBRARY_CLASS_ENTRIES): print(f"{self.lineNumber}:{items[0]}|{items[1]}")
 
     # Handle a line in the [PcdsDynamic] section
@@ -1394,7 +1398,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         DECs.append((self.fileName, self.lineNumber, line))
-        self.packages.append(line)
+        self.PACKAGES.append(line)
         if Debug(SHOW_PACKAGES_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Protocols] section
@@ -1407,7 +1411,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
             self.ReportError('section packages cannot be used outside of braces')
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        self.headerfiles.append(line)
+        self.HEADERFILES.append(line)
         super().DefaultSection(line, "headerfiles")
 
     # The following sections are handled by the defaut handler:
@@ -1445,15 +1449,16 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # returns nothing
     def __init__(self, fileName, referenceName, referenceLine):
         global INFDefines
-        self.reference      = [(referenceName, referenceLine)]
-        self.defines        = {}
-        self.depex          = ""
-        self.includes       = []
-        self.sources        = []
-        self.ppis           = []
-        self.protocols      = []
-        self.packages       = []
-        self.libraryclasses = []
+        # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
+        self.reference      = [(referenceName, referenceLine)]  # This attribute is handled in a special case
+        self.DEFINES        = {}
+        self.DEPEX          = ""
+        self.INCLUDES       = []
+        self.SOURCES        = []
+        self.PPIS           = []
+        self.PROTOCOLS      = []
+        self.PACKAGES       = []
+        self.LIBRARYCLASSES = []
         for attr in INFDefines: setattr(self, attr, None)
         # Call cunstructor for parent class
         super().__init__(fileName, self.INFSections)
@@ -1473,7 +1478,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
         if good:
             # Is it a DEFINE case
             if match.group(2) == 'DEFINE':
-                self.defines[items[0]] = items[1]
+                self.DEFINES[items[0]] = items[1]
             # Make sure it is a supported attribute
             else:
                 if not items[0] in INFDefines:
@@ -1487,7 +1492,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_depex(self, line, match):
-        self.depex += " " + re.sub("[ \t]+", " ", line)
+        self.DEPEX += " " + re.sub("[ \t]+", " ", line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [FeaturePcd] section
@@ -1530,7 +1535,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     def section_includes(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        self.includes.append(line)
+        self.INCLUDES.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
@@ -1541,7 +1546,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
         # Handle match results: groups 1 required, 3forbidden
         good, items = self.CheckGroups(match, "R X", 3, line)
         if good:
-            self.libraryclasses.append(items[0])
+            self.LIBRARYCLASSES.append(items[0])
             if Debug(SHOW_LIBRARY_CLASS_ENTRIES): print(f"{self.lineNumber}:{items[0]}")
 
     # Handle a line in the [Packages] section
@@ -1553,7 +1558,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         DECs.append((self.fileName, self.lineNumber, line))
-        self.packages.append(line)
+        self.PACKAGES.append(line)
         if Debug(SHOW_PACKAGES_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [PatchPcd] section
@@ -1598,7 +1603,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     def section_ppis(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        self.ppis.append(line)
+        self.PPIS.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Protocols] section
@@ -1608,7 +1613,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     def section_protocols(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        self.protocols.append(line)
+        self.PROTOCOLS.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Sources] section
@@ -1618,7 +1623,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     def section_sources(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        self.sources.append(line)
+        self.SOURCES.append(line)
         if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # The following sections are handled by the defaut handler:
@@ -1658,7 +1663,8 @@ class DSCParser(UEFIParser):                # subsections, regularExpression
     # process:  Starting conditional processing state (default is True)
     # returns nothing
     def __init__(self, fileName, sections = [], process = True):
-        self.libraries        = []
+        # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
+        self.LIBRARIES        = []
         # Call constructor for parent class
         super().__init__(fileName, self.DSCSections, True, True, ['error'], sections, process)
 
@@ -1878,7 +1884,7 @@ class DSCParser(UEFIParser):                # subsections, regularExpression
     def section_libraries(self, line, match):
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        self.libraries.append(line)
+        self.LIBRARIES.append(line)
         if Debug(SHOW_LIBRARIES_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
@@ -2025,6 +2031,38 @@ class PlatformInfo:
         keys.sort()
         return keys
 
+    def dump(self, object, indent, skip = []):
+        kind = type(object)
+        if   kind is object: items = dir(object)
+        elif kind is list:   items = object
+        elif kind is dict:   items = self.sortedKeys(object)
+        else:
+            return    # What else can be done here
+        for item in items:
+            if item.startswith('__'):              continue
+            if item == 'section' and not 'section' in skip:             # Special handling for section
+                print(f"{indent}section: {GetSection(object.section)}")
+                continue
+            if item != item.upper():               continue             # Only dump attributes in all caps
+            value = getattr(object, item) if kind is object else object[item]
+            if value == None:                      continue
+            if type(value) is str and not value:   continue
+            if type(value) is list:
+                 if bool(value):
+                    print(f"{indent}{item}: {value[0]}")
+                    spaces = ' ' * (len(item) + 2)
+                    for lst in value[1:]:
+                        print(f"{indent}{spaces}{lst}")
+            elif type(value) is dict:
+                 if bool(value):
+                    keys = self.sortedKeys(value)
+                    print(f"{indent}{item}: {keys[0]}: {value[keys[0]]}")
+                    spaces = ' ' * (len(item) + 2)
+                    for key in keys[1:]:
+                        print(f"{indent}{spaces}{key}: {value[key]}")
+            else:
+                print(f"{indent}{item}: {value}")
+
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
@@ -2096,32 +2134,28 @@ class PlatformInfo:
             print(f"{lcs}:")
             for lc in LibraryClasses[lcs]:
                 print(f"    {lc.lineNumber}:{lc.fileName}")
-                print(f"        Section: {GetSection(lc.section)}")
-                print(f"        Path: {lc.path}")
+                self.dump(lc, '        ')
         print(f"List of GUIDS:")
         print(f"--------------")
         for guids in self.sortedKeys(GUIDs):
             print(f"{guids}:")
             for guid in GUIDs[guids]:
                 print(f"    {guid.lineNumber}:{guid.fileName}")
-                print(f"        Section: {GetSection(guid.section)}")
-                print(f"        Value: {guid.value}")
+                self.dump(guid, '        ')
         print(f"List of SkuIds:")
         print(f"---------------")
         for skuids in self.sortedKeys(SkuIds):
             print(f"{skuids}:")
             for skuid in SkuIds[skuids]:
                 print(f"    {skuid.lineNumber}:{skuid.fileName}")
-                print(f"        Section: {GetSection(skuid.section)}")
-                print(f"        Value: {skuid.value}")
+                self.dump(skuid, '        ')
         print(f"List of DefaultStores:")
         print(f"---------------------")
         for dfs in self.sortedKeys(DefaultStores):
             print(f"{dfs}:")
             for df in DefaultStores[dfs]:
                 print(f"    {df.lineNumber}:{df.fileName}")
-                print(f"        Section: {GetSection(df.section)}")
-                print(f"        Value: {df.value}")
+                self.dump(df, '        ')
         print(f"List of PCDs:")
         print(f"-------------")
         for pcds in self.sortedKeys(PCDs):
@@ -2129,11 +2163,7 @@ class PlatformInfo:
             for pcd in PCDs[pcds]:
                 print(f"    {pcd.lineNumber}:{pcd.fileName}")
                 print(f"        section: {GetSection(pcd.section)}")
-                for item in dir(pcd):
-                    if not item.startswith("__") and not item in ['lineNumber', 'fileName', 'section', 'pcdname']:
-                        value = getattr(pcd, item)
-                        if type(value) is str and not value: continue
-                        print(f"        {item}: {getattr(pcd,item)}")
+                self.dump(pcd, '            ', ['section'])
         print(f"List of INFs:")
         print(f"-------------")
         for inf in infs:
@@ -2141,35 +2171,14 @@ class PlatformInfo:
             inf = infs[inf]
             for i in range(0, len(inf.reference)):
               print(f"    Reference: {inf.reference[i][1]}:{inf.reference[i][0]}")
-            print(f"    Defines:")
-            for attr in INFDefines:
-                value = getattr(inf, attr, None)
-                if value: print(f"        {attr}: {value}")
-            for define in inf.defines:
-                print(f"        {define}: {inf.defines[define]}")
-            if bool(inf.includes):
-                print(f"    Includes:")
-                for include in inf.includes:
-                    print(f"        {include}")
-            if bool(inf.sources):
-                print(f"    Sources:")
-                for source in inf.sources:
-                    print(f"        {source}")
-            if bool(inf.ppis):
-                print(f"    PPIs:")
-                for ppi in inf.ppis:
-                    print(f"        {ppi}")
-            if bool(inf.protocols):
-                print(f"    Protocols:")
-                for protocol in inf.protocols:
-                    print(f"        {protocol}")
-            if bool(inf.depex): print(f"    DepEx: {inf.depex}")
+            self.dump(inf, '    ', ['reference'])
         print(f"List of Files:")
         print(f"--------------")
         for file in Files:
-            print(file)
+            print(f"{file}")
+            self.dump(Files[file], '    ')
             
 # Indicate platform to be processed
-#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
+#platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
