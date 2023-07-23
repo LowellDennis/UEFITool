@@ -39,20 +39,6 @@ reBar       = r'^([^\s\|$]+)\s*(\|?\s*([^$]+)?)?'
 # Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=?optional item5
 rePcds      = r'^([^\.]+)\.\s*([^\s\|$]+)\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^\|$]+)?)?\s*(\|?\s*([^$]+)?)?'
 
-# Items defined in the [Defines] section of an INF file
-INFDefines = [
-    "BASE_NAME",     "CONSTRUCTOR",              "DESTRUCTOR",  "EDK_RELEASE_VERSION",       "EFI_SPECIFICATION_VERSION",
-    "ENTRY_POINT",   "FILE_GUID",                "INF_VERSION", "LIBRARY_CLASS",             "MODULE_UNI_FILE",
-    "PCD_IS_DRIVER", "PI_SPECIFICATION_VERSION", "MODULE_TYPE", "UEFI_HII_RESOURCE_SECTION", "UEFI_SPECIFICATION_VERSION",
-    "UNLOAD_IMAGE",  "VERSION_STRING",
-]
-
-# Items defiend in FV sections of an FDF file
-FDFDefines = [
-    "BlockSize", "NumBlocks", "FvAlignment", "ERASE_POLARITY", "MEMORY_MAPPED", "STICKY_WRITE", "LOCK_CAP", "LOCK_STATUS", "WRITE_DISABLED_CAP", "WRITE_ENABLED_CAP", "WRITE_STATUS",
-    "WRITE_LOCK_CAP", "WRITE_LOCK_STATUS", "READ_DISABLED_CAP", "READ_ENABLED_CAP", "READ_STATUS", "READ_LOCK_CAP", "READ_LOCK_STATUS", "FvNameGuid", "FvBaseAddress", "FvForceRebase"
-]
-
 # DEBUG Constants
 # Content based skips
 SHOW_COMMENT_SKIPS          = 0x8000000000    # Show lines being skipped due to being blank or comments
@@ -1107,6 +1093,13 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                     'rule':    (False,        None),
     }
 
+    # Items defiend in FV sections of an FDF file
+    FDFDefines = [
+        "ERASE_POLARITY",   "LOCK_CAP",     "LOCK_STATUS",        "MEMORY_MAPPED",     "READ_DISABLED_CAP",  "READ_ENABLED_CAP", "READ_STATUS",   "READ_LOCK_CAP",
+        "READ_LOCK_STATUS", "STICKY_WRITE", "WRITE_DISABLED_CAP", "WRITE_ENABLED_CAP", "WRITE_LOCK_CAP",     "WRITE_LOCK_STATUS", "WRITE_STATUS",
+        "BlockSize",        "NumBlocks",    "FvAlignment",        "FvNameGuid",        "FvBaseAddress",      "FvForceRebase", 
+    ]
+
     ###################
     # Private methods #
     ###################
@@ -1115,13 +1108,12 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # filename: File to parse
     # returns nothing
     def __init__(self, fileName):
-        global FDFDefines
         # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
         self.DEFINES = {}
         self.INFS    = []
         self.APRIORI = {}
         # Call cunstructor for parent class
-        for item in FDFDefines: self.DEFINES[item] = None
+        for item in self.FDFDefines: self.DEFINES[item] = None
         super().__init__(fileName, self.FDFSections, True, True)
 
     ######################
@@ -1163,7 +1155,6 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_fv(self, line, match):
-        global FDFDefines
         def HandleINF():
             temp = line.replace('INF', '').lstrip()
             if temp == '': return False
@@ -1230,7 +1221,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
             if define:
                 self.DefineMacro(items[0], items[1])
             else:
-                if not items[0] in FDFDefines:
+                if not items[0] in self.FDFDefines:
                     self.ReportError(f'Unsupported FV define: {items[0]}')
                 self.DEFINES[items[0]] = items[1]
             return
@@ -1451,6 +1442,14 @@ class INFParser(UEFIParser):          # subsections, regularExpression
                     'userextensions':  (False,       None),
     }
 
+    # Items defined in the [Defines] section of an INF file (because these are all caps they will show up in dump)
+    INFDefines = [
+        "BASE_NAME",     "CONSTRUCTOR",              "DESTRUCTOR",  "EDK_RELEASE_VERSION",       "EFI_SPECIFICATION_VERSION",
+        "ENTRY_POINT",   "FILE_GUID",                "INF_VERSION", "LIBRARY_CLASS",             "MODULE_UNI_FILE",
+        "PCD_IS_DRIVER", "PI_SPECIFICATION_VERSION", "MODULE_TYPE", "UEFI_HII_RESOURCE_SECTION", "UEFI_SPECIFICATION_VERSION",
+        "UNLOAD_IMAGE",  "VERSION_STRING",
+    ]
+
     ###################
     # Private methods #
     ###################
@@ -1461,7 +1460,6 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # referenceLine:    Line of file referencing the INF
     # returns nothing
     def __init__(self, fileName, referenceName, referenceLine):
-        global INFDefines
         # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
         self.reference      = [(referenceName, referenceLine)]  # This attribute is handled in a special case
         self.DEFINES        = {}
@@ -1472,7 +1470,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
         self.PROTOCOLS      = []
         self.PACKAGES       = []
         self.LIBRARYCLASSES = []
-        for attr in INFDefines: setattr(self, attr, None)
+        for attr in self.INFDefines: setattr(self, attr, None)
         # Call cunstructor for parent class
         super().__init__(fileName, self.INFSections)
 
@@ -1485,7 +1483,6 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
-        global INFDefines
         # Handle match results: groups 3 required, 4 optional
         good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
@@ -1494,7 +1491,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
                 self.DEFINES[items[0]] = items[1]
             # Make sure it is a supported attribute
             else:
-                if not items[0] in INFDefines:
+                if not items[0] in self.INFDefines:
                     self.ReportError(f"Unsupported INF define: {items[0]}")
                     return
                 setattr(self, items[0], items[1])
@@ -2190,8 +2187,8 @@ class PlatformInfo:
             self.dump(Files[file], '    ')
             
 # Indicate platform to be processed
-#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
+#platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
 
 ###########
