@@ -54,46 +54,53 @@ FDFDefines = [
 ]
 
 # DEBUG Constants
-SHOW_COMMENT_SKIPS          = 0x80000000    # Show lines being skipped due to being blank or comments
-SHOW_SKIPPED_ARCHITECTURES  = 0x40000000    # Show lines being skipped due to architectural limitation
-SHOW_SKIPPED_INFS           = 0x20000000    # Show INF files skipped because they have already been processed
-SHOW_SKIPPED_DECS           = 0x10000000    # Show INF files skipped because they have already been processed
-SHOW_CONDITIONAL_SKIPS      = 0x08000000    # Show lines being skipped due to conditionals
-SHOW_CONVERTED_CONDITIONAL  = 0x04000000    # Show conditional after conversion to python
-SHOW_CONDITIONAL_LEVEL      = 0x02000000    # Show conditional level
-SHOW_CONDITIONAL_DIRECTIVES = 0x01000000    # Show lines with conditional directives 
-SHOW_SPECIAL_HANDLERS       = 0x00800000    # Show special handlers
-SHOW_INCLUDE_RETURN         = 0x00400000    # Show when returing from an included files
-SHOW_INCLUDE_DIRECTIVE      = 0x00200000    # Show include directive lines
-SHOW_DEFAULT_SECTION        = 0x00100000    # Show lines handled by default section handler
-#
-SHOW_LIBRARIES_ENTRIES      = 0x00008000    # Show include definitions
-SHOW_INCLUDE_ENTRIES        = 0x00004000    # Show include definitions
-SHOW_PACKAGES_ENTRIES       = 0x00002000    # Show package definitions
-SHOW_COMPONENT_ENTRIES      = 0x00001000    # Show component definitions
-SHOW_INF_ENTRIES            = 0x00000800    # Show INF definitions
-SHOW_LIBRARY_CLASS_ENTRIES  = 0x00000400    # Show LibraryClass definitions
-SHOW_DEFAULT_STORE_ENTRIES  = 0x00000200    # Show DefaultStore definitions
-SHOW_PROTOCOL_ENTRIES       = 0x00000100    # Show Protocol definitions
-SHOW_PPI_ENTRIES            = 0x00000080    # Show PPI definitions
-SHOW_SKUID_ENTRIES          = 0x00000040    # Show SkuId definitions
-SHOW_GUID_ENTRIES           = 0x00000020    # Show GUID definitions
-SHOW_PCD_ENTRIES            = 0x00000010    # Show PCD definitions
-#
-SHOW_ERROR_DIRECT1VE        = 0x00000008    # Show lines with error directives
-SHOW_MACRO_DEFINITIONS      = 0x00000004    # Show macro definitions
-SHOW_SECTION_CHANGES        = 0x00000002    # Show changes in sections
-SHOW_FILENAMES              = 0X00000001    # Show names of files being processed
+# Content based skips
+SHOW_COMMENT_SKIPS          = 0x8000000000    # Show lines being skipped due to being blank or comments
+SHOW_SKIPPED_ARCHITECTURES  = 0x4000000000    # Show lines being skipped due to architectural limitation
+SHOW_CONDITIONAL_SKIPS      = 0x2000000000       # Show lines being skipped due to conditionals
+# File type skips
+SHOW_SKIPPED_DSCS           = 0x0800000000    # Show DSC files skipped because they have already been processed
+SHOW_SKIPPED_INFS           = 0x0400000000    # Show INF files skipped because they have already been processed
+SHOW_SKIPPED_DECS           = 0x0200000000    # Show DEC files skipped because they have already been processed
+SHOW_SKIPPED_FDFS           = 0x0100000000    # Show FDF files skipped because they have already been processed
+# Conditional information
+SHOW_CONDITIONAL_DIRECTIVES = 0x0080000000    # Show lines with conditional directives 
+SHOW_CONDITIONAL_LEVEL      = 0x0040000000    # Show conditional level
+SHOW_CONVERTED_CONDITIONAL  = 0x0020000000    # Show conditional after conversion to python
+# Special handling
+SHOW_SPECIAL_HANDLERS       = 0x0008000000    # Show special handlers
+SHOW_INCLUDE_RETURN         = 0x0004000000    # Show when returing from an included files
+SHOW_INCLUDE_DIRECTIVE      = 0x0002000000    # Show include directive lines
+SHOW_DEFAULT_SECTION        = 0x0001000000    # Show lines handled by default section handler
+# Section entry handling
+SHOW_FILE_ENTRIES           = 0x0000010000    # Show file defiinitions
+SHOW_LIBRARIES_ENTRIES      = 0x0000008000    # Show include definitions
+SHOW_INCLUDE_ENTRIES        = 0x0000004000    # Show include definitions
+SHOW_PACKAGES_ENTRIES       = 0x0000002000    # Show package definitions
+SHOW_COMPONENT_ENTRIES      = 0x0000001000    # Show component definitions
+SHOW_INF_ENTRIES            = 0x0000000800    # Show INF definitions
+SHOW_LIBRARY_CLASS_ENTRIES  = 0x0000000400    # Show LibraryClass definitions
+SHOW_DEFAULT_STORE_ENTRIES  = 0x0000000200    # Show DefaultStore definitions
+SHOW_PROTOCOL_ENTRIES       = 0x0000000100    # Show Protocol definitions
+SHOW_PPI_ENTRIES            = 0x0000000080    # Show PPI definitions
+SHOW_SKUID_ENTRIES          = 0x0000000040    # Show SkuId definitions
+SHOW_GUID_ENTRIES           = 0x0000000020    # Show GUID definitions
+SHOW_PCD_ENTRIES            = 0x0000000010    # Show PCD definitions
+# Basic stuff
+SHOW_ERROR_DIRECT1VE        = 0x0000000008    # Show lines with error directives
+SHOW_MACRO_DEFINITIONS      = 0x0000000004    # Show macro definitions
+SHOW_SECTION_CHANGES        = 0x0000000002    # Show changes in sections
+SHOW_FILENAMES              = 0X0000000001    # Show names of files being processed
 
 DEBUG_NONE                  = 0
 DEBUG_INCLUDES              = SHOW_INCLUDE_DIRECTIVE + SHOW_INCLUDE_RETURN
 DEBUG_CONDITIONALS          = SHOW_CONDITIONAL_DIRECTIVES + SHOW_CONDITIONAL_LEVEL + SHOW_CONVERTED_CONDITIONAL
 DEBUG_SECTIONS              = SHOW_DEFAULT_SECTION + SHOW_PCD_ENTRIES + SHOW_GUID_ENTRIES + SHOW_SKUID_ENTRIES + SHOW_PPI_ENTRIES + SHOW_PROTOCOL_ENTRIES + SHOW_DEFAULT_STORE_ENTRIES + SHOW_LIBRARY_CLASS_ENTRIES + SHOW_INF_ENTRIES + SHOW_INCLUDE_ENTRIES + SHOW_LIBRARIES_ENTRIES
 DEBUG_SKIPS                 = SHOW_COMMENT_SKIPS + SHOW_CONDITIONAL_SKIPS + SHOW_SKIPPED_ARCHITECTURES
-DEBUG_MINIMAL               = 0x00000001
-DEBUG_NORMAL                = 0x0000000F
-DEBUG_VERBOSE               = 0x07FFFFFF
-DEBUG_ALL                   = 0xFFFFFFFF
+DEBUG_MINIMAL               = 0x0000000001
+DEBUG_NORMAL                = 0x000000000F
+DEBUG_VERBOSE               = 0x000FFFFFFF
+DEBUG_ALL                   = 0xFFFFFFFFFF
 
 # Global Variables
 BasePath                = None
@@ -101,6 +108,7 @@ Paths                   = []
 MacroVer                = 0
 Macros                  = {}
 PCDs                    = {}
+Files                   = {}
 LibraryClasses          = {}
 GUIDs                   = {}
 SkuIds                  = {}
@@ -1124,11 +1132,16 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # line: File to be included
     # returns nothing
     def directive_include(self, line):
+        global DSCs, MacroVer, FDFs, SHOW_SKIPPED_DSCS, SHOW_SKIPPED_FDFS
         def includeHandler(file):
             if file.lower().endswith(".dsc"):
-                dsc = DSCParser(file, [], True)
-            else:    
-                fdf = FDFParser(file)
+                if file in DSCs and DSCs[file].macroVer == MacroVer:
+                    if Debug(SHOW_SKIPPED_DSCS): print(f"{self.lineNumber}:Previously loaded:{file}")
+                else: DSCs[file] = DSCParser(file, [], True)
+            else:
+                if file in FDFs and FDFs[file].macroVer == MacroVer:
+                    if Debug(SHOW_SKIPPED_FDFS): print(f"{self.lineNumber}:Previously loaded:{file}")
+                else: FDFs.append(FDFParser(file))
         self.IncludeFile(line, includeHandler)
 
     ####################
@@ -1143,7 +1156,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
         # Handle match results: groups 3 required, 4 optional
         good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
-          self.DefineMacro(items[0], items[1])
+            self.DefineMacro(items[0], items[1])
 
     # Handle a line in the [Defines] section
     # line:  Contents of line
@@ -1684,13 +1697,11 @@ class DSCParser(UEFIParser):                # subsections, regularExpression
     # includeFile: File to be included
     # returns nothing
     def directive_include(self, includeFile):
+        global DSCs, MacroVer, SHOW_SKIPPED_DSCS
         def includeDSCFile(file):
-            global DSCs, MacroVer
-            if file in DSCs:
-                if DSCs[file].macroVer == MacroVer:
-                    if Debug(SHOW_INCLUDE_DIRECTIVE): print(f"{self.lineNumber}:Previously loaded:{file}")
-                    return DSCs[file]
-            DSCs[file] = DSCParser(file, self.sections, self.process)
+            if file in DSCs and  DSCs[file].macroVer == MacroVer:
+                    if Debug(SHOW_SKIPPED_DSCS): print(f"{self.lineNumber}:Previously loaded:{file}")
+            else: DSCs[file] = DSCParser(file, self.sections, self.process)
         self.IncludeFile(includeFile, includeDSCFile)
 
     ####################
@@ -2088,7 +2099,7 @@ class PlatformInfo:
                 Error(f"{name}, line: {number}\n              Unable to locate file {path}\n")
                 continue
             if file in infs:
-                if Debug(SHOW_SKIPPED_INFS): print(f"INF @{number} in {name} skipped because it was previosly parsed")
+                if Debug(SHOW_SKIPPED_INFS): print(f"{number}:{name}:Previously loaded:{file}")
                 inf = infs[file]
                 # Only add reference if it is not already there
                 if not (name, number) in inf.reference:
@@ -2106,7 +2117,7 @@ class PlatformInfo:
                 Error(f"{name}, line: {number}\n              Unable to locate file {path}\n")
                 continue
             if file in decs:
-                if Debug(SHOW_SKIPPED_DECS): print(f"DEC @{number} in {name} skipped because it was previosly parsed")
+                if Debug(SHOW_SKIPPED_DECS): print(f"{number}:{name}:Previously loaded:{file}")
             else:
                 decs[file] = DECParser(file)
 
@@ -2179,6 +2190,6 @@ class PlatformInfo:
             self.dump(Files[file], '    ')
             
 # Indicate platform to be processed
-platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-#platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
+platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
