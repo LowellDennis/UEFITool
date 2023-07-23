@@ -2193,3 +2193,11 @@ class PlatformInfo:
 #platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
 platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
+
+###########
+### TBD ###
+###########
+# - Allow platform directory to be passed in instead of hard coded
+# - Convert other file lists to dictionaries and used MacroVer like it is used for DSC?
+# - Cross-reference items to make sure things are consistent?
+# - Generate files instead of output to the screen so it can be used by other utilites
