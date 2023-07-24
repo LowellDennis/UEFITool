@@ -59,7 +59,11 @@ SHOW_INCLUDE_RETURN         = 0x0004000000    # Show when returing from an inclu
 SHOW_INCLUDE_DIRECTIVE      = 0x0002000000    # Show include directive lines
 SHOW_DEFAULT_SECTION        = 0x0001000000    # Show lines handled by default section handler
 # Section entry handling
-SHOW_FV_ENTRIES             = 0x0000040000    # SHOW fv definitions (other than APRIORI)
+SHOW_INCLUDE_ENTRIES        = 0x0000400000    # Show include definitions
+SHOW_DEFINE_ENTRIES         = 0x0000200000    # Show define definitions
+SHOW_SOURCES_ENTRIES        = 0x0000100000    # Show source definitions
+SHOW_DEPEX_ENTRIES          = 0x0000080000    # Show depex definitions
+SHOW_FV_ENTRIES             = 0x0000040000    # Show fv definitions (other than APRIORI and FILE)
 SHOW_APRIORI_ENTRIES        = 0x0000020000    # Show APRIORI definitions
 SHOW_FILE_ENTRIES           = 0x0000010000    # Show file defiinitions
 SHOW_LIBRARIES_ENTRIES      = 0x0000008000    # Show include definitions
@@ -83,7 +87,10 @@ SHOW_FILENAMES              = 0X0000000001    # Show names of files being proces
 DEBUG_NONE                  = 0
 DEBUG_INCLUDES              = SHOW_INCLUDE_DIRECTIVE + SHOW_INCLUDE_RETURN
 DEBUG_CONDITIONALS          = SHOW_CONDITIONAL_DIRECTIVES + SHOW_CONDITIONAL_LEVEL + SHOW_CONVERTED_CONDITIONAL
-DEBUG_SECTIONS              = SHOW_DEFAULT_SECTION + SHOW_PCD_ENTRIES + SHOW_GUID_ENTRIES + SHOW_SKUID_ENTRIES + SHOW_PPI_ENTRIES + SHOW_PROTOCOL_ENTRIES + SHOW_DEFAULT_STORE_ENTRIES + SHOW_LIBRARY_CLASS_ENTRIES + SHOW_INF_ENTRIES + SHOW_INCLUDE_ENTRIES + SHOW_LIBRARIES_ENTRIES
+DEBUG_SECTIONS              = SHOW_DEFAULT_SECTION + SHOW_PCD_ENTRIES + SHOW_GUID_ENTRIES + SHOW_SKUID_ENTRIES + SHOW_PPI_ENTRIES + SHOW_PROTOCOL_ENTRIES + \
+                              SHOW_DEFAULT_STORE_ENTRIES + SHOW_LIBRARY_CLASS_ENTRIES + SHOW_INF_ENTRIES + SHOW_INCLUDE_ENTRIES + SHOW_LIBRARIES_ENTRIES + \
+                              SHOW_FV_ENTRIES + SHOW_APRIORI_ENTRIES +  SHOW_FILE_ENTRIES + SHOW_DEPEX_ENTRIES + SHOW_SOURCES_ENTRIES + SHOW_DEFINE_ENTRIES + \
+                              SHOW_INCLUDE_ENTRIES
 DEBUG_SKIPS                 = SHOW_COMMENT_SKIPS + SHOW_CONDITIONAL_SKIPS + SHOW_SKIPPED_ARCHITECTURES
 DEBUG_MINIMAL               = 0x0000000001
 DEBUG_NORMAL                = 0x000000000F
@@ -431,6 +438,7 @@ class UEFIParser:
     # Handle subsection process (not call unless section supports subsections)
     # line: Line which is to be handled
     def __handleSubsection__(self, line):
+        global SHOW_COMMENT_SKIPS
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         # Handle casse where a subsection is already being processed
@@ -486,6 +494,7 @@ class UEFIParser:
     # line: Line to handle
     # returns nothing
     def __handleAprioriList__(self, line):
+        global SHOW_COMMENT_SKIPS
         # Look for end of list
         if line == '}':
             # Indicate that list is done
@@ -499,6 +508,7 @@ class UEFIParser:
     # line: Line to handle
     # returns nothing
     def __handleGuidedDescriptor__(self, line):
+        global SHOW_COMMENT_SKIPS, SHOW_FILE_ENTRIES
         # Look for end of guided descriptor
         if line == '}':
             # Add guided information to file info
@@ -519,7 +529,7 @@ class UEFIParser:
     # line: Line to handle
     # returns nothing
     def __handleFileDescriptor__(self, line):
-        global Files
+        global Files, SHOW_COMMENT_SKIPS, SHOW_FILE_ENTRIES
         # Look for end of file descriptor
         if line == '}':
             # Get file descriptor
@@ -591,6 +601,7 @@ class UEFIParser:
     # line: line to be handled
     # returns nothing
     def __handleIndividualLine__(self, line):
+        global reDefine, reFile
         # See if a apriori  is being processed
         if self.processApriori:
             self.__handleAprioriList__(line)
@@ -634,6 +645,7 @@ class UEFIParser:
                 return
             # Indicate need to process file cescriptor
             self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
+            if Debug(SHOW_FILE_ENTRIES): print(f'{self.lineNumber}: FILE {match.group(1)}, {match.group(2)}')
 
     # Expandes all macros within a line
     # line: line in which macros are to be expanded
@@ -662,6 +674,8 @@ class UEFIParser:
             self.lineNumber = 0
             for line in content:
                 self.lineNumber += 1
+                if (self.lineNumber, self.fileName) == (34, 'Intel/EagleStreamFDBin/EagleStreamRpPkg/Include/Fdf/FvOpRomPath.dsc'):
+                    pass
                 line = self.__removeComment__(line)
                 if not line: continue
                 # Expand macros before parsing
@@ -1167,6 +1181,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_fv(self, line, match):
+        global reEquate, reFile, SHOW_INF_ENTRIES, SHOW_APRIORI_ENTRIES, SHOW_FILE_ENTRIES
         def HandleINF():
             temp = line.replace('INF', '').lstrip()
             if temp == '': return False
@@ -1186,7 +1201,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                     inf[items[idx]] = items[idx+2]
             if self.processApriori == None: self.INFS.append(inf)
             else: self.APRIORI[self.processApriori].append(inf)
-            if Debug(SHOW_FV_ENTRIES): print(f'{self.lineNumber}:INF {inf["FILE"]}')
+            if Debug(SHOW_INF_ENTRIES): print(f'{self.lineNumber}:INF {inf["FILE"]}')
             return True
         # Get first token on the line
         define = False
@@ -1303,6 +1318,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_guids(self, line, match):
+        global SHOW_GUID_ENTRIES
         # Handle match results: groups 1 required, 3 optional
         good, items = self.CheckGroups(match, "R R", 3, line)
         if good:
@@ -1324,6 +1340,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_libraryclasses(self, line, match):
+        global SHOW_LIBRARY_CLASS_ENTRIES
         # Handle match results: groups 1 required, 2 required)
         good, items = self.CheckGroups(match, "RR", 3, line)
         if good:
@@ -1412,7 +1429,7 @@ class DECParser(UEFIParser):               #  subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_packages(self, line, match):
-        global DECs
+        global DECs, SHOW_PACKAGES_ENTRIES
         # Only allow this section handle if in a subsection
         if not self.inSubsection:
             self.ReportError('section packages cannot be used outside of braces')
@@ -1500,6 +1517,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_defines(self, line, match):
+        global SHOW_DEFINE_ENTRIES
         # Handle match results: groups 3 required, 4 optional
         good, items = self.CheckGroups(match, "  RO", 4, line)
         if good:
@@ -1512,7 +1530,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
                     self.ReportError(f"Unsupported INF define: {items[0]}")
                     return
                 setattr(self, items[0], items[1])
-            if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{items[0]}={items[1]}")
+            if Debug(SHOW_DEFINE_ENTRIES): print(f"{self.lineNumber}:{items[0]}={items[1]}")
 
     # Handle a line in the [Depex] section
     # line:  Contents of line
@@ -1520,7 +1538,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # returns nothing
     def section_depex(self, line, match):
         self.DEPEX += " " + re.sub("[ \t]+", " ", line)
-        if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
+        if Debug(SHOW_DEPEX_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [FeaturePcd] section
     # line:  Contents of line
@@ -1560,16 +1578,18 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_includes(self, line, match):
+        global SHOW_INCLUDE_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.INCLUDES.append(line)
-        if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
+        if Debug(SHOW_INCLUDE_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [LibraryClasses] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_libraryclasses(self, line, match):
+        global SHOW_LIBRARY_CLASS_ENTRIES
         # Handle match results: groups 1 required, 3forbidden
         good, items = self.CheckGroups(match, "R X", 3, line)
         if good:
@@ -1581,7 +1601,7 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_packages(self, line, match):
-        global DECs
+        global DECs, SHOW_PACKAGES_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         DECs.append((self.fileName, self.lineNumber, line))
@@ -1628,30 +1648,33 @@ class INFParser(UEFIParser):          # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_ppis(self, line, match):
+        global SHOW_PPI_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.PPIS.append(line)
-        if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
+        if Debug(SHOW_PPI_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Protocols] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_protocols(self, line, match):
+        global SHOW_PROTOCOL_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.PROTOCOLS.append(line)
-        if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
+        if Debug(SHOW_PROTOCOL_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # Handle a line in the [Sources] section
     # line:  Contents of line
     # match: Results of regex match
     # returns nothing
     def section_sources(self, line, match):
+        global SHOW_SOURCES_ENTRIES
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
         self.SOURCES.append(line)
-        if Debug(SHOW_INF_ENTRIES): print(f"{self.lineNumber}:{line}")
+        if Debug(SHOW_SOURCES_ENTRIES): print(f"{self.lineNumber}:{line}")
 
     # The following sections are handled by the defaut handler:
     #    binaries
@@ -1736,7 +1759,7 @@ class DSCParser(UEFIParser):                # subsections, regularExpression
     # match: Results of regex match
     # returns nothing
     def section_components(self, line, match):
-        global INFs
+        global INFs, SHOW_COMPONENT_ENTRIES
         # Include the file
         line = line.replace('"', '')
         INFs.append((self.fileName, self.lineNumber, line))
@@ -2096,7 +2119,7 @@ class PlatformInfo:
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
-        global DSCs, DECs, INFs, BasePath, Macros, PCDs
+        global DSCs, DECs, INFs, BasePath, Macros, PCDs, SHOW_SKIPPED_INFS, SHOW_SKIPPED_DECS
         # Parse the args file
         print(f"Parsing Args files:")
         print(f"-------------------")
@@ -2209,15 +2232,16 @@ class PlatformInfo:
             self.dump(Files[file], '    ')
             
 # Indicate platform to be processed
-platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-#platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
+#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
+platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
 PlatformInfo(platform)
 
 ###########
 ### TBD ###
 ###########
+# - Still need to add support for COMPRESS files to FDF FV sections
+# - Add processing of all sections so that all syntax and information is checked
 # - Allow platform directory to be passed in instead of hard coded
-# - Make sure full debug includes output for all lines processed (I think there are several types of items in FDF files that do not generate output)
 # - Convert other file lists to dictionaries and used MacroVer like it is used for DSC?
 # - Cross-reference items to make sure things are consistent?
 # - Generate files instead of output to the screen so it can be used by other utilites
