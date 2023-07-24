@@ -59,6 +59,8 @@ SHOW_INCLUDE_RETURN         = 0x0004000000    # Show when returing from an inclu
 SHOW_INCLUDE_DIRECTIVE      = 0x0002000000    # Show include directive lines
 SHOW_DEFAULT_SECTION        = 0x0001000000    # Show lines handled by default section handler
 # Section entry handling
+SHOW_FV_ENTRIES             = 0x0000040000    # SHOW fv definitions (other than APRIORI)
+SHOW_APRIORI_ENTRIES        = 0x0000020000    # Show APRIORI definitions
 SHOW_FILE_ENTRIES           = 0x0000010000    # Show file defiinitions
 SHOW_LIBRARIES_ENTRIES      = 0x0000008000    # Show include definitions
 SHOW_INCLUDE_ENTRIES        = 0x0000004000    # Show include definitions
@@ -105,7 +107,7 @@ DECs                    = []
 INFs                    = []
 FDFs                    = []
 SupportedArchitectures  = []
-DebugLevel              = DEBUG_MINIMAL
+DebugLevel              = DEBUG_ALL
 
 # Debug output checker
 # check: Debug item to check
@@ -133,7 +135,7 @@ def SetMacro(macro, value):
     if macro in Macros and str(Macros[macro]) == str(value): return
     Macros[macro] = value
     MacroVer      += 1
-    if Debug(SHOW_MACRO_DEFINITIONS): print(f'v{MacroVer}:{macro} = {value}')
+    return f'v{MacroVer}:{macro} = {value}' 
 
 # Join two paths together and make sure slashes are consistent
 # path1: First path to join
@@ -509,7 +511,9 @@ class UEFIParser:
             # Otherwise add information on line to guided info
             items = line.split(maxsplit=1)
             kind  = items[0].upper()
-            self.processGuided[kind] = '' if len(items) == 1 else ' '.join(items[1].split())
+            value = '' if len(items) == 1 else ' '.join(items[1].split())
+            self.processGuided[kind] = value
+            if Debug(SHOW_FILE_ENTRIES): print(f"{self.lineNumber}:{kind}{'' if not value else ' = '+ value}")
 
     # Handles items within a guided descriptor
     # line: Line to handle
@@ -559,10 +563,13 @@ class UEFIParser:
                             self.ReportError(f'Bad format for guided section linee: {line}')
                             return
                     # Add attributes to inf
+                    if Debug(SHOW_FILE_ENTRIES): msg = ''
                     for idx in range(1, len(items), 3):
                         guided[items[idx]] = items[idx+2]
+                        if Debug(SHOW_FILE_ENTRIES): msg += f'{items[idx]} = {items[idx+2]}'
                 # Indicate need to process guided descriptor
                 self.processGuided = guided
+                if Debug(SHOW_FILE_ENTRIES): print(f'{self.lineNumber}: SECTION GUIDED {msg}')
                 return
             # Look for COMPRESS lines
             elif kind == 'COMPRESS':
@@ -578,6 +585,7 @@ class UEFIParser:
                 return
             # Handle all other kinds of lines
             self.processFile[kind] = '' if len(items) == 1 else ' '.join(items[1].split())
+            if Debug(SHOW_FILE_ENTRIES): print(f'{self.lineNumber}:{kind} {items[1] if len(items)> 1 else ""}')
 
     # Handles an individual line that is not a directive or section header
     # line: line to be handled
@@ -897,7 +905,8 @@ class UEFIParser:
             value = '"' + value + '"'
         # Save result
         if not value: macrovalue = '""'
-        SetMacro(macro, value)
+        result = SetMacro(macro, value)
+        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{self.lineNumber}:{result}')
         # Call handler for this macro (if found)
         handler = getattr(self, f"macro_{macro}", None)
         if handler and callable(handler): handler(value)
@@ -933,7 +942,7 @@ class UEFIParser:
     # handler: Routine to handle the inclusion
     # returns full path to file or None if file could not be found
     def IncludeFile(self, partial, handler):
-        global SHOW_INCLUDE_DIRECTIVE, SHOW_INCLUDE_RETURN 
+        global SHOW_INCLUDE_DIRECTIVE, SHOW_INCLUDE_RETURN, SHOW_CONDITIONAL_SKIPS
         if self.process:
             # Get full path to file to be incuded
             file = self.FindFile(partial)
@@ -944,6 +953,9 @@ class UEFIParser:
                 handler(file)
                 if Debug(SHOW_INCLUDE_RETURN): print(f"{self.lineNumber}:Returning to {self.fileName}")
             # Note else error handled in self.FindFile!
+        else:
+            if Debug(SHOW_CONDITIONAL_SKIPS): print(f"{self.lineNumber}:SKIPPED - Conditionally")
+
 
     # Check results of regular expression match
     # match:   Regular expression result
@@ -1173,8 +1185,8 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                 for idx in range(0, len(items) - 1, 3):
                     inf[items[idx]] = items[idx+2]
             if self.processApriori == None: self.INFS.append(inf)
-            else:
-                self.APRIORI[self.processApriori].append(inf)
+            else: self.APRIORI[self.processApriori].append(inf)
+            if Debug(SHOW_FV_ENTRIES): print(f'{self.lineNumber}:INF {inf["FILE"]}')
             return True
         # Get first token on the line
         define = False
@@ -1193,13 +1205,16 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                 self.ReportError(f"Bad format for FILE line: {line}")
             else:
                 self.processFile = { "TYPE": match.group(1), "GUID": match.group(2)}
+                if Debug(SHOW_FILE_ENTRIES): msg = f'FILE {match.group(1)}, {match.group(2)}'
                 if match.group(3) != None:
                     if match.group(3) == 'CHECKSUM':
                         self.processFile['CHECKSUM'] = 'TRUE'
+                        if Debug(SHOW_FILE_ENTRIES): msg += f', CHECKSUM'
                     elif match.group(3) != '':
                         pass        # OK to do nothing here (means match.group(3) was not matched to anything useful)
                     else:
                         pass        # TBD (Not sure what else match.group(3) could be!!!)
+                if Debug(SHOW_FILE_ENTRIES): print(f'{self.lineNumber}:{msg}')
             return
         # Handle APRIORI lines
         elif kind == "APRIORI":
@@ -1208,6 +1223,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                 return
             self.processApriori               = items[1].upper()
             self.APRIORI[self.processApriori] = []
+            if Debug(SHOW_APRIORI_ENTRIES): print(f'{self.lineNumber}:APRIORI {items[1].replace("{", "").rstrip()}')
             return
         # Handle DEFINE lines
         elif kind == "DEFINE":
@@ -1224,6 +1240,7 @@ class FDFParser(UEFIParser): #  subsections?, regularExpression
                 if not items[0] in self.FDFDefines:
                     self.ReportError(f'Unsupported FV define: {items[0]}')
                 self.DEFINES[items[0]] = items[1]
+                if Debug(SHOW_MACRO_DEFINITIONS): print(f'{self.lineNumber}:{items[0]} = {items[1]}')
             return
         # else handled in CheckGroups
 
@@ -1946,7 +1963,8 @@ class PlatformInfo:
     # Set environment variable and also save in Macros
     def __setEnvironment__(self, variable, value):
         global isWindows
-        SetMacro(variable, value.replace('\\', '/'))
+        result = SetMacro(variable, value.replace('\\', '/'))
+        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
         if isWindows: value = value.replace('/', '\\')
         os.environ[variable] = value
 
@@ -1967,7 +1985,8 @@ class PlatformInfo:
                 Error('Unable to locate base of UEFI platform tree ... exiting!')
                 sys.exit(1)
         # Get PATH from the environment
-        SetMacro('PATH', os.environ['PATH'].replace('\\', '/'))
+        result = SetMacro('PATH', os.environ['PATH'].replace('\\', '/'))
+        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
 
     # Utility form finding a particular line in the argsFile
     # lookFor: Partial contents of line being sought
@@ -2010,7 +2029,8 @@ class PlatformInfo:
         global Paths
         paths = os.environ["PACKAGES_PATH"].replace("\\", "/")
         Paths = paths.split(";")
-        SetMacro("PACKAGE_PATH", Paths)
+        result = SetMacro("PACKAGE_PATH", Paths)
+        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
 
     # Finds the chipset DSC file
     # returns the chipset file
@@ -2023,7 +2043,8 @@ class PlatformInfo:
             if not commonFamily:
                 Error('Unable to determine value for COMMON_FAMILY ... exiting!')
                 sys.exit(2)
-            SetMacro("COMMON_FAMILY", commonFamily)
+            result = SetMacro("COMMON_FAMILY", commonFamily)
+            if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
             file = FindPath(JoinPath(commonFamily, "PlatformPkgConfigCommon.dsc"))
             if not file:
                 Error('Unable to locate common family file ... exiting!')
@@ -2032,7 +2053,8 @@ class PlatformInfo:
             if not hpPlatformPkg:
                 Error('Unable to determine value for HP_PLATFORM_PKG ... exiting!')
                 sys.exit(4)
-        SetMacro("HP_PLATFORM_PKG", hpPlatformPkg)
+        result = SetMacro("HP_PLATFORM_PKG", hpPlatformPkg)
+        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
     
     def sortedKeys(self, dict):
         keys = list(dict.keys())
