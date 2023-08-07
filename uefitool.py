@@ -2114,8 +2114,9 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     def Dump(self):
         def GetOptions(opts):
             options = ''
-            for option in opts['options']:
-                options += f" {opts['option']}={opts['value']}"
+            if bool(opts):
+                for opt in opts:
+                    options += f" {opt['option']}={opt['value']}"
             return options
         self.DumpTokenValue(self.CAPSULES, 'Capsules')
         DSCParser.DumpDefines(self)
@@ -2156,8 +2157,8 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                 print(f"        {i}:FILE {item['type']} {item['guid']}{options}")
                 for j, section in enumerate(item['sections']):
                     options = GetOptions(section['options'])
-                    print (f"            {j}:SECTION GUIDED {section['type']['GUIDED']}{options}")
                     if 'guided' in section:
+                        print (f"            {j}:SECTION GUIDED {section['type']['GUIDED']}{options}")
                         for k, sect in enumerate(section['guided']['sections']):
                             sect = sect['type']
                             print (f"                {k}:SECTION {sect['type']} {sect['value']}")
