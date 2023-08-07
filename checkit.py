@@ -24,10 +24,10 @@ def CheckIt(file):
                 if number == Line[-1] + 1: Line[-1] += 1
                 # Look for special cases where line number does not change
                 elif number == Line[-1]:
-                    if not rest.split()[0] in ['ConvertedCondition', 'ConditionalLevel', 'Limiting']:
+                    if not rest.split()[0] in ['ConvertedCondition', 'ConditionalLevel', 'Limiting', 'SKIPPED']:
                         if not rest.startswith('[') and rest.rstrip().endswith(']'):
                             print(f'Unexpected line numbering discontinuity found at line {count}')
-                # Look for specail case where line number can change dramatically
+                # Look for special case where line number can change dramatically
                 elif not 'Previously' in rest and not 'Returning' in rest:
                     print(f'Unexpected line numbering discontinuity found at line {count}')
                 # Look for include
@@ -35,6 +35,7 @@ def CheckIt(file):
                 # Look for return
                 elif 'Returning' in rest: Line.pop()
             except ValueError:
+                if not line.strip(): continue       # Allow blank lines
                 if "RESULTS:" in line: break
                 print(f'Unexpected line format found at line {count}')
 
