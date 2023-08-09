@@ -1205,6 +1205,30 @@ class UEFIParser:
             self.inSubsection = True
             if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering subsection')
 
+    # Generic attribute dump method for dumping a list attribute with one field
+    # lst:   List attribute to dump
+    # title: Title to show for this list
+    # field: Dictionary name given to the attribute
+    # fixup: When True, any __MACRO__UNDEFINED__ substrings will be converted back to $(MACRO) 
+    def DumpSingle(self, lst, title, field, fixup = False):
+        if bool(list):
+            print(f'    {title}:')
+            for i, item in enumerate(lst):
+                value = FixUndefined(item[field]) if fixup else item[field]
+                print(f"        {i}:{value}")
+
+    # Dump information from the class
+    def Dump(self):
+        # Loop through attributes
+        for item in dir(self):
+            # Only care about attributes that are ALL CAPS
+            if not item.upper() == item: continue
+            # Just in case
+            if item.startswith('__'):    continue
+            # Get and call dump method for this attribute
+            handler = getattr(self, f'Dump{item}')
+            handler()
+
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
 class ArgsParser(UEFIParser):                        #debug,                        regularExpression(s),   arguments
     BuildArgsSections = { 'environmentvariables':    (SHOW_ENVIRONMENTVARIABLES,    reEnvironmentVariables, ('R O',    'ENVIRONMENTVARIABLES', ['variable', 'value'])),
@@ -1276,7 +1300,14 @@ class ArgsParser(UEFIParser):                        #debug,                    
                 self.DefineMacro(macro, value)
         # Else already taken care of
 
-    def DumpHpBuildArgs(self):
+    def DumpENVIRONMENTVARIABLES(self):
+        if bool(self.ENVIRONMENTVARIABLES):
+            print('    EnvironmentVariables:')
+            for i, item in enumerate(self.ENVIRONMENTVARIABLES):
+                value = '' if not 'value' in item else FixUndefined(item['value'])
+                print(f"        {i}:{item['variable']}={value}")
+
+    def DumpHPBUILDARGS(self):
         if bool(self.HPBUILDARGS):
             print('    HpBuildArgs:')
             for i, item in enumerate(self.HPBUILDARGS):
@@ -1284,12 +1315,7 @@ class ArgsParser(UEFIParser):                        #debug,                    
                 value = '' if not 'value' in item else  '=' + FixUndefined(item['value'])
                 print(f"        {i}:{item['option']}{arg}{value}")
 
-    def Dump(self):
-        if bool(self.ENVIRONMENTVARIABLES):
-            print('    EnvironmentVariables:')
-            for i, item in enumerate(self.ENVIRONMENTVARIABLES):
-                value = '' if not 'value' in item else FixUndefined(item['value'])
-                print(f"        {i}:{item['variable']}={value}")
+    def DumpPYTHONSCRIPTS(self):
         if bool(self.PYTHONSCRIPTS):
             print('    PythonScripts:')
             for i, item in enumerate(self.PYTHONSCRIPTS):
@@ -1327,28 +1353,31 @@ class ChipsetParser(UEFIParser):           #debug,                  regularExpre
     def section_hpbuildargs(self, idx, match):
         ArgsParser.section_hpbuildargs(self, idx, match)
 
-    def DumpSingle(self, lst, title, field, fixup = False):
-        if bool(list):
-            print(f'    {title}:')
-            for i, item in enumerate(lst):
-                value = FixUndefined(item[field]) if fixup else item[field]
-                print(f"        {i}:{value}")
+    def DumpHPBUILDARGS(self):
+        ArgsParser.DumpHPBUILDARGS(self)
 
-    def Dump(self):
+    def DumpBINARIES(self):
         if bool(self.BINARIES):
             print('    Binaries:')
             for i, item in enumerate(self.BINARIES):
                 print(f"        {i}:{item['binary']} {FixUndefined(item['path'])}")
-        ArgsParser.DumpHpBuildArgs(self)
+
+    def DumpPLATFORMPACKAGES(self):
         if bool(self.PLATFORMPACKAGES):
             print('    PlatformPkgs:')
             for i, item in enumerate(self.PLATFORMPACKAGES):
                 print(f"        {i}:{FixUndefined(item['package'])}")
+
+    def DumpSNAPS(self):
         if bool(self.SNAPS):
             print('    Snaps:')
             for i, item in enumerate(self.SNAPS):
                 print(f"        {i}:{item['version']}={item['snap']}")
-        self.DumpSingle(self.TAGEXCEPTIONS, 'TagExceptions', 'tag')
+
+    def DumpTAGEXCEPTIONS(self):
+        UEFIParser.DumpSingle(self, self.TAGEXCEPTIONS, 'TagExceptions', 'tag')
+
+    def DumpUPATCHES(self):
         if bool(self.UPATCHES):
             print('    uPatches:')
             for i, item in enumerate(self.UPATCHES):
@@ -1477,7 +1506,7 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
             self.ReportError('Unexpected regular expression index encountered')
         INFs.append( (self.fileName, self.lineNumber, match.group(3).replace('"', '')) )
 
-    def DumpBuildOptions(self):
+    def DumpBUILDOPTIONS(self):
         if bool(self.BUILDOPTIONS):
             print('    BuildOptions:')
             for i, item in enumerate(self.BUILDOPTIONS):
@@ -1485,20 +1514,23 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                 value = '' if not 'value' in item else '=' + FixUndefined(item['value'])
                 print(f"        {i}:{tag}{item['option']}{value}")
 
-    def DumpDefines(self):
+    def DumpCOMPONENTS(self):
+        UEFIParser.DumpSingle(self, self.COMPONENTS, 'Components', 'inf', True)
+
+    def DumpDEFINES(self):
         if bool(self.DEFINES):
             print('    Defines:')
             for i, item in enumerate(self.DEFINES):
                 value = '' if item['value'] == None else FixUndefined(item['value'])
                 print(f"        {i}:{item['macro']}={value}")
 
-    def DumpLibraryClasses(self):
+    def DumpLIBRARYCLASSES(self):
         if bool(self.LIBRARYCLASSES):
             print('    LibraryClasses:')
             for i, item in enumerate(self.LIBRARYCLASSES):
                 print(f"        {i}:{item['name']}|{FixUndefined(item['path'])}")
 
-    def DumpPcds(self):
+    def DumpPCDS(self):
         if bool(self.PCDS):
             print('    Pcds:')
             for i, item in enumerate(self.PCDS):
@@ -1513,25 +1545,21 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                         values.append(eval("'' if not '{field}' in item else '|' + item['{field}']"))
                     print(f"        {i}:{item['pcdtokenspaceguidname']}.{item['pcdname']}{values[0]}{values[1]}{values[2]}{values[3]}{values[4]}")
 
-    def DumpUserExtensions(self):
-        ChipsetParser.DumpSingle(self, self.USEREXTENSIONS, 'UserExtensions', 'ext')
+    def DumpUSEREXTENSIONS(self):
+        UEFIParser.DumpSingle(self, self.USEREXTENSIONS, 'UserExtensions', 'ext')
 
-    def Dump(self):
-        self.DumpBuildOptions()
-        ChipsetParser.DumpSingle(self, self.COMPONENTS, 'Components', 'inf', True)
+    def DumpDEFAULTSTORES(self):
         if bool(self.DEFAULTSTORES):
             print('    DefaultStores:')
             for i, item in enumerate(self.DEFAULTSTORES):
                 print(f"        {i}:{item['value']}|{item['name']}")
-        self.DumpDefines()
-        self.DumpLibraryClasses()
-        self.DumpPcds()
+
+    def DumpSKUIDS(self):
         if bool(self.SKUIDS):
             print('    SkuIds:')
             for i, item in enumerate(self.SKUIDS):
                 parent = '' if not 'parent' in item else '|' + item['parent']
                 print(f"        {i}:{item['value']}|{item['skuid']}{parent}")
-        self.DumpUserExtensions()
 
 # Class for handling UEFI INF files
 class INFParser(UEFIParser):                 #debug,               regularExpression(s), arguments
@@ -1608,7 +1636,7 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
             DECs.append((self.fileName, self.lineNumber, match.group(1)))
         # Else already taken care of
 
-    def Dump(self):
+    def DumpBINARIES(self):
         if bool(self.BINARIES):
             print('    Binaries:')
             for i, item in enumerate(self.BINARIES):
@@ -1616,19 +1644,40 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                 for field in ['tag1', 'tag2', 'tag3', 'tag4']:
                     values.append(eval("'' if not '{field}' in item else '|' + item['{field}']"))
                 print(f"        {i}:{item['type']}.{FixUndefined(item['path'])}{values[0]}{values[1]}{values[2]}{values[3]}")
-        DSCParser.DumpBuildOptions(self)
-        DSCParser.DumpDefines(self)
+
+    def DumpBUILDOPTIONS(self):
+        DSCParser.DumpBUILDOPTIONS(self)
+
+    def DumpDEFINES(self):
+        DSCParser.DumpDEFINES(self)
+
+    def DumpDEPEX(self):
         if bool(self.DEPEX):
             depex = ''
             for i, item in enumerate(self.DEPEX):
                 items = item['depex'].split()
                 depex += ' '.join(items) + ' '
             print(f"    DepEx: {depex.rstrip()}")
-        ChipsetParser.DumpSingle(self, self.GUIDS, 'GUIDs', 'guid')
-        ChipsetParser.DumpSingle(self, self.INCLUDES, 'Includes', 'include', True)
-        DSCParser.DumpLibraryClasses(self)
-        ChipsetParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
-        DSCParser.DumpPcds(self)
+
+    def DumpGUIDS(self):
+        UEFIParser.DumpSingle(self, self.GUIDS, 'GUIDs', 'guid')
+
+    def DumpINCLUDES(self):
+        UEFIParser.DumpSingle(self, self.INCLUDES, 'Includes', 'include', True)
+
+    def DumpLIBRARYCLASSES(self):
+        DSCParser.DumpLIBRARYCLASSES(self)
+
+    def DumpPACKAGES(self):
+        UEFIParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
+
+    def DumpPCDS(self):
+        DSCParser.DumpPCDS(self)
+
+    def DumpPPIS(self):
+        UEFIParser.DumpSingle(self, self.PPIS, 'PPIs', 'ppi')
+
+    def DumpPROTOCOLS(self):
         if bool(self.PROTOCOLS):
             print('    Protocols:')
             for i, item in enumerate(self.PROTOCOLS):
@@ -1636,6 +1685,8 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                 space   = '' if not 'pcdtokenspaceguidname' in item else ' ' + item['pcdtokenspaceguidname']
                 pcdname = '' if not 'pcdname'               in item else '.' + item['pcdname']
                 print(f"        {i}:{item['protocol']}{inv}{space}{pcdname}")
+
+    def DumpSOURCES(self):
         if bool(self.SOURCES):
             print('    Sources:')
             for i, item in enumerate(self.SOURCES):
@@ -1643,7 +1694,9 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                 for field in ['source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8']:
                     values.append(eval("'' if not '{field}' in item else '|' + item['{field}']"))
                 print(f"        {i}:{item['source']}{values[0]}{values[1]}{values[2]}{values[3]}{values[4]}{values[5]}{values[6]}")
-        DSCParser.DumpUserExtensions(self)
+
+    def DumpUSEREXTENSIONS(self):
+        DSCParser.DumpUSEREXTENSIONS(self)
 
 # Class for handling UEFI DEC files
 class DECParser(UEFIParser):                #debug,                regularExpression(s), arguments
@@ -1755,18 +1808,35 @@ class DECParser(UEFIParser):                #debug,                regularExpres
         if idx != None:
             self.ReportError('Unexpected regular expression index encountered')
 
-    def Dump(self):
-        DSCParser.DumpDefines(self)
-        ChipsetParser.DumpSingle(self, self.GUIDS, 'GUIDs', 'guid')
-        ChipsetParser.DumpSingle(self, self.INCLUDES, 'Includes', 'include', True)
-        DSCParser.DumpLibraryClasses(self)
-        DSCParser.DumpPcds(self)
-        ChipsetParser.DumpSingle(self, self.PPIS, 'PPIs', 'ppi')
-        ChipsetParser.DumpSingle(self, self.PROTOCOLS, 'Protocols', 'protocol')
-        DSCParser.DumpUserExtensions(self)
-        ChipsetParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
-        ChipsetParser.DumpSingle(self, self.HEADERFILES, 'HeaderFiles', 'path', True)
+    def DumpDEFINES(self):
+        DSCParser.DumpDEFINES(self)
 
+    def DumpGUIDS(self):
+        UEFIParser.DumpSingle(self, self.GUIDS, 'GUIDs', 'guid')
+
+    def DumpINCLUDES(self):
+        UEFIParser.DumpSingle(self, self.INCLUDES, 'Includes', 'include', True)
+
+    def DumpLIBRARYCLASSES(self):
+        DSCParser.DumpLIBRARYCLASSES(self)
+
+    def DumpPPIS(self):
+        UEFIParser.DumpSingle(self, self.PPIS, 'PPIs', 'ppi')
+
+    def DumpPCDS(self):
+        DSCParser.DumpPCDS(self)
+
+    def DumpPROTOCOLS(self):
+        UEFIParser.DumpSingle(self, self.PROTOCOLS, 'Protocols', 'protocol')
+
+    def DumpPACKAGES(self):
+        UEFIParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
+
+    def DumpHEADERFILES(self):
+        UEFIParser.DumpSingle(self, self.HEADERFILES, 'HeaderFiles', 'path', True)
+
+    def DumpUSEREXTENSIONS(self):
+        DSCParser.DumpUSEREXTENSIONS(self)
 
 # Class for handling UEFI FDF files
 class FDFParser(UEFIParser):   #debug,        regularExpression(s),                    handlerArguments
@@ -2111,15 +2181,13 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
             for i, item in enumerate(list):
                 print(f"        {i}:{item['token']}={item['value']}")
 
-    def Dump(self):
-        def GetOptions(opts):
-            options = ''
-            if bool(opts):
-                for opt in opts:
-                    options += f" {opt['option']}={opt['value']}"
-            return options
+    def DumpCAPSULES(self):
         self.DumpTokenValue(self.CAPSULES, 'Capsules')
-        DSCParser.DumpDefines(self)
+
+    def DumpDEFINES(self):
+        DSCParser.DumpDEFINES(self)
+
+    def DumpFDS(self):
         if bool(self.FDS):
             print(f'    FDs:')
             for i, item in enumerate(self.FDS):
@@ -2129,17 +2197,25 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                     print(f"        {i}:{item['offset']}:{item['size']}")
                 else:
                     print(f"        {i}:{','.join(item)}")
+
+    def DumpFVS(self):
         self.DumpTokenValue(self.FVS, 'FVs')
+
+    def DumpRULES(self):
         if bool(self.RULES):
             print(f'    RULES:')
             for item in self.RULES:
                 items = FixUndefined(item['rule']).split()
                 print(f"        {' '.join(items)}")
+
+    def DumpAPRIORI(self):
         if bool(self.APRIORI):
             for name in self.APRIORI:
                 print(f'    {name} Apriori:')
                 for i, item in enumerate(self.APRIORI[name]):
                     print(f"        {i+1}:{item}")
+
+    def DumpINFS(self):
         if bool(self.INFS):
             print('    INFs')
             for i, item in enumerate(self.INFS):
@@ -2148,6 +2224,14 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                     msg += f' {opt[0]}'
                     if len(opt) > 1: msg += f'={opt[1]}'
                 print(f'        {i}:{msg}')
+
+    def DumpFILES(self):
+        def GetOptions(opts):
+            options = ''
+            if bool(opts):
+                for opt in opts:
+                    options += f" {opt['option']}={opt['value']}"
+            return options
         if bool(self.FILES):
             print('    Files')
             for i, item in enumerate(self.FILES):
