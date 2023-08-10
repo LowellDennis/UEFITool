@@ -31,43 +31,39 @@ SHOW_CONVERTED_CONDITIONAL   = 0x0020000000000000    # Show conditional after co
 SHOW_SPECIAL_HANDLERS        = 0x0008000000000000    # Show special handlers
 SHOW_INCLUDE_RETURN          = 0x0004000000000000    # Show when returing from an included files
 SHOW_INCLUDE_DIRECTIVE       = 0x0002000000000000    # Show include directive lines
-SHOW_DEFAULT_SECTION         = 0x0001000000000000    # Show lines handled by default section handler
 SHOW_SUBSECTION_ENTER        = 0x0000800000000000    # Show entry into subsections
 SHOW_SUBSSECTION_EXIT        = 0x0000400000000000    # Show exit  from subsections
 # Section entry handling
-SHOW_USEREXTENSIONS          = 0x0000001000000000    # Show lines in UserExtensions         sections
-SHOW_TAGEXCEPTIONS           = 0x0000000800000000    # Show lines in TagException           sections
-SHOW_SOURCES                 = 0x0000000400000000    # Show lines in Sources                sections
-SHOW_SNAPS                   = 0x0000000200000000    # Show lines in Snaps                  sections
-SHOW_SKUIDS                  = 0x0000000100000000    # Show lines in SkuIds                 sections
-SHOW_RULE                    = 0x0000000080000000    # Show lines in Rule                   sections
-SHOW_PYTHONPREHPBUILDSCRIPTS = 0x0000000040000000    # Show lines in PythonHpPreBuildScripts sections
-SHOW_PYTHONPREBUILDSCRIPTS   = 0x0000000020000000    # Show lines in PythonPreBuildScripts   sections
-SHOW_PYTHONPOSTBUILDSCRIPTS  = 0x0000000010000000    # Show lines in PythonPostBuildScripts  sections
-SHOW_PYTHONBUILDFAILSCRIPTS  = 0x0000000008000000    # Show lines in PythoBuildFailScripts   sections
-SHOW_PROTOCOLS               = 0x0000000004000000    # Show lines in Protocols              sections
-SHOW_PPIS                    = 0x0000000002000000    # Show lines in PPIs                   sections
-SHOW_PLATFORMPACKAGES        = 0x0000000001000000    # Show lines in PlatformPackages       sections
-SHOW_PCDS                    = 0x0000000000800000    # Show lines in PCDs                   sections
-SHOW_UPATCHES                = 0x0000000000400000    # Show lines in uPatches               sections
-SHOW_PACKAGES                = 0x0000000000200000    # Show lines in Packages               sections
-SHOW_LIBRARYCLASSES          = 0x0000000000100000    # Show lines in LibraryClasses         sections
-SHOW_INCLUDES                = 0x0000000000080000    # Show lines in Includes               sections
-SHOW_HPBUILDARGS             = 0x0000000000040000    # Show lines in HpBuildArgs             sections
-SHOW_HEADERFILES             = 0x0000000000020000    # Show lines in HeaderFiles            sections
-SHOW_GUIDS                   = 0x0000000000010000    # Show lines in GUIDs                  sections
-SHOW_FV                      = 0x0000000000008000    # Show lines in FV                     sections
-SHOW_FMPPAYLOAD              = 0x0000000000004000    # Show lines in PmpPayload             sections
-SHOW_FD                      = 0x0000000000001000    # Show lines in FD                     sections
-SHOW_ENVIRONMENTVARIABLES    = 0x0000000000000800    # Show lines in EnvironmentVariable     sections
-SHOW_DEPEX                   = 0x0000000000000400    # Show lines in Depex                  sections
-SHOW_DEFINES                 = 0x0000000000000200    # Show lines in Defines                sections
-SHOW_DEFAULTSTORES           = 0x0000000000000100    # Show lines in DefaultStores          sections
-SHOW_COMPONENTS              = 0x0000000000000080    # Show lines in Components             sections
-SHOW_CAPSULE                 = 0x0000000000000040    # Show lines in Capsule                sections
-SHOW_BUILDOPTIONS            = 0x0000000000000020    # Show lines in BuildOptions           sections
-SHOW_BINARIES                = 0x0000000000000010    # Show lines in Binaries               sections
-# Basic stuff
+SHOW_USEREXTENSIONS          = 0x0000000200000000    # Show lines in UserExtensions      sections
+SHOW_TAGEXCEPTIONS           = 0x0000000100000000    # Show lines in TagException        sections
+SHOW_SOURCES                 = 0x0000000800000000    # Show lines in Sources             sections
+SHOW_SNAPS                   = 0x0000000400000000    # Show lines in Snaps               sections
+SHOW_SKUIDS                  = 0x0000000020000000    # Show lines in SkuIds              sections
+SHOW_RULE                    = 0x0000000010000000    # Show lines in Rule                sections
+SHOW_PYTHONSCRIPTS           = 0x0000000008000000    # Show lines in PythonScripts       sections
+SHOW_PROTOCOLS               = 0x0000000004000000    # Show lines in Protocols           sections
+SHOW_PPIS                    = 0x0000000002000000    # Show lines in PPIs                sections
+SHOW_PLATFORMPACKAGES        = 0x0000000001000000    # Show lines in PlatformPackages    sections
+SHOW_PCDS                    = 0x0000000000800000    # Show lines in PCDs                sections
+SHOW_UPATCHES                = 0x0000000000400000    # Show lines in uPatches            sections
+SHOW_PACKAGES                = 0x0000000000200000    # Show lines in Packages            sections
+SHOW_LIBRARYCLASSES          = 0x0000000000100000    # Show lines in LibraryClasses      sections
+SHOW_INCLUDES                = 0x0000000000080000    # Show lines in Includes            sections
+SHOW_HPBUILDARGS             = 0x0000000000040000    # Show lines in HpBuildArgs         sections
+SHOW_HEADERFILES             = 0x0000000000020000    # Show lines in HeaderFiles         sections
+SHOW_GUIDS                   = 0x0000000000010000    # Show lines in GUIDs               sections
+SHOW_FV                      = 0x0000000000008000    # Show lines in FV                  sections
+SHOW_FMPPAYLOAD              = 0x0000000000004000    # Show lines in FmpPayload          sections
+SHOW_FD                      = 0x0000000000001000    # Show lines in FD                  sections
+SHOW_ENVIRONMENTVARIABLES    = 0x0000000000000800    # Show lines in EnvironmentVariable sections
+SHOW_DEPEX                   = 0x0000000000000400    # Show lines in Depex               sections
+SHOW_DEFINES                 = 0x0000000000000200    # Show lines in Defines             sections
+SHOW_DEFAULTSTORES           = 0x0000000000000100    # Show lines in DefaultStores       sections
+SHOW_COMPONENTS              = 0x0000000000000080    # Show lines in Components          sections
+SHOW_CAPSULE                 = 0x0000000000000040    # Show lines in Capsule             sections
+SHOW_BUILDOPTIONS            = 0x0000000000000020    # Show lines in BuildOptions        sections
+SHOW_BINARIES                = 0x0000000000000010    # Show lines in Binaries            sections
+# Basic stuf f
 SHOW_ERROR_DIRECT1VE         = 0x0000000000000008    # Show lines with error directives
 SHOW_MACRO_DEFINITIONS       = 0x0000000000000004    # Show macro definitions
 SHOW_SECTION_CHANGES         = 0x0000000000000002    # Show changes in sections
@@ -81,7 +77,7 @@ DEBUG_VERBOSE                = 0x00FFFFFFFFFFFFFF
 DEBUG_ALL                    = 0xFFFFFFFFFFFFFFFF
 
 # Set the debug level
-DebugLevel                   = DEBUG_MINIMAL
+DebugLevel                   = DEBUG_ALL
 
 ################################
 # Regular expression constants #
@@ -338,7 +334,7 @@ reCapsule              = r'^' + reFirmEquate
 # Regular expression for matching lines with format "0x??, 0x?? ..."
 # Groups 1=>optional options, 2=>inf
 reHexNumber            = r'0x[0-9A-F][0-9A-F]?'
-reData                 = r'^((' + reHexNumber + r'\s*,\s*)+(' + reHexNumber + ')?)$'
+reDataAdd              = r'^((' + reHexNumber + r'\s*,\s*)+(' + reHexNumber + ')?)$'
 
 # Regular expression for matching lines with format "DATA = {"
 # Groups 1=>optional options, 2=>inf
@@ -784,7 +780,13 @@ class UEFIParser:
                 names = args[2]
                 if callable(names): names = names(self, match, line)
                 self.__updateAttribute__(names, items, attribute, info[0])
-            # Call the named handler if present and callable
+            # Call the match handler if present and callable
+            handler = None if len(args) < 4  else args[3]
+            if handler:
+                handler = getattr(self, handler, None)
+                if handler and callable:
+                    handler(match)
+            # Call the section handler if present and callable
             handler = getattr(self, f"section_{section}", None)
             if handler and callable(handler):
                 handler(idx, match)
@@ -884,7 +886,7 @@ class UEFIParser:
     # Method for parsing a file file line by line
     # filePath:  file to be parsed
     def __parse__(self):
-        global SHOW_FILENAMES, SHOW_CONDITIONAL_SKIPS
+        global reDefine, SHOW_FILENAMES, SHOW_CONDITIONAL_SKIPS
         if Debug(SHOW_FILENAMES): print(f"Processing {self.fileName}")
         # Read in the file
         try:
@@ -931,6 +933,7 @@ class UEFIParser:
     # expression: Expression to be converted
     # returns converted expression
     def __convertExpression__(self, expression):
+        global Macros
         # Match string literals (format "<string>") and replace them with a placeholder (format __STRING_LITERAL<#>))
         # This is so nothing inside of string literals is changed by this routine
         placeholders = []
@@ -972,6 +975,7 @@ class UEFIParser:
     # condition: Condition to evaluate
     # TBD ... Need to add evaulation of GUIDS
     def __evaluateCondition__(self, kind, condition):
+        global SHOW_CONVERTED_CONDITIONAL
         # Convert the expression to a Python expression
         result = self.__convertExpression__(condition)
         if Debug(SHOW_CONVERTED_CONDITIONAL): print(f"{self.lineNumber}:ConvertedCondition: {result}")
@@ -1135,7 +1139,7 @@ class UEFIParser:
     # line: line containing the macro
     # returns nothing
     def DefineMacro(self, macro, value):
-        global Macros, SHOW_MACRO_DEFINITIONS
+        global SHOW_MACRO_DEFINITIONS
         try:
             # See if value can be interpreted
             value = eval(value)
@@ -1160,13 +1164,9 @@ class UEFIParser:
     # path: partial path of file being searched for
     # returns full path to file or None if file could not be found
     def FindFile(self, path):
-        global Paths, Macros
         # Make sure there are no undefined macros in the file path'
         if '_UNDEFINED__' in path:
             items = path.split("__")
-            #if items[1] == "FSP_PKG" and "COMMON_FAMILY" in Macros:
-            #    path = path.replace("__FSP_PKG__UNDEFINED__", Macros["COMMON_FAMILY"].replace('"',"").split('/')[-1].replace("Intel", "") + "FspPkg")
-            #else:
             self.ReportError(f"Unable to locate file due to undefined macro: {path}")
             return None
         # Remove quotes that were added by macro expansion
@@ -1196,6 +1196,7 @@ class UEFIParser:
 
     # Used to mark entry into a subsection
     def EnterSubsection(self):
+        global SHOW_SUBSECTION_ENTER
         # This only needs to happen for first section in sections that are grouped together
         if self.sections.index(self.section) == 0:
             # Make sure previous subsection is done
@@ -1211,7 +1212,7 @@ class UEFIParser:
     # field: Dictionary name given to the attribute
     # fixup: When True, any __MACRO__UNDEFINED__ substrings will be converted back to $(MACRO) 
     def DumpSingle(self, lst, title, field, fixup = False):
-        if bool(list):
+        if bool(lst):
             print(f'    {title}:')
             for i, item in enumerate(lst):
                 value = FixUndefined(item[field]) if fixup else item[field]
@@ -1230,13 +1231,13 @@ class UEFIParser:
             handler()
 
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
-class ArgsParser(UEFIParser):                        #debug,                        regularExpression(s),   arguments
-    BuildArgsSections = { 'environmentvariables':    (SHOW_ENVIRONMENTVARIABLES,    reEnvironmentVariables, ('R O',    'ENVIRONMENTVARIABLES', ['variable', 'value'])),
-                          'hpbuildargs':             (SHOW_HPBUILDARGS,             reHpBuildArgs,          (' R O O', 'HPBUILDARGS',          ['option',   'arg',  'value'])),
-                          'pythonbuildfailscripts':  (SHOW_PYTHONBUILDFAILSCRIPTS,  rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])),
-                          'pythonprebuildscripts':   (SHOW_PYTHONPREBUILDSCRIPTS,   rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])),
-                          'pythonprehpbuildscripts': (SHOW_PYTHONPREHPBUILDSCRIPTS, rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])),
-                          'pythonpostbuildscripts':  (SHOW_PYTHONPOSTBUILDSCRIPTS,  rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])),
+class ArgsParser(UEFIParser):                        #debug,                     regularExpression(s),   arguments
+    BuildArgsSections = { 'environmentvariables':    (SHOW_ENVIRONMENTVARIABLES, reEnvironmentVariables, ('R O',    'ENVIRONMENTVARIABLES', ['variable', 'value'],         'matchEnvironmentVariables')),
+                          'hpbuildargs':             (SHOW_HPBUILDARGS,          reHpBuildArgs,          (' R O O', 'HPBUILDARGS',          ['option',   'arg',  'value'], 'matchBuildArgs')),
+                          'pythonbuildfailscripts':  (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
+                          'pythonprebuildscripts':   (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
+                          'pythonprehpbuildscripts': (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
+                          'pythonpostbuildscripts':  (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
     }
 
     # Class constructor
@@ -1266,40 +1267,38 @@ class ArgsParser(UEFIParser):                        #debug,                    
     ####################
     # Section handlers #
     ####################
+    #None
+        
+    ##################
+    # Match handlers #
+    ##################
 
-    # Handle a line in the [EnvironmentVariables] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [EnvironmentVariables] section
     # match: Results of regex match
     # returns nothing
-    def section_environmentvariables(self, idx, match):
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
-        if match:
-            variable = match.group(1)
-            value    = match.group(3) if match.group(3) != None else ''
-            self.DefineMacro(variable, value.replace('\\', '/'))
-            os.environ[variable] = value
-        # Else already taken care of
+    def matchEnvironmentVariables(self, match):
+        variable = match.group(1)
+        value    = match.group(3) if match.group(3) != None else ''
+        self.DefineMacro(variable, value.replace('\\', '/'))
+        os.environ[variable] = value
 
-    # Handle a line in the [HpBuildArgs] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [HpBuildArgs] section
     # match: Results of regex match
     # returns nothing
-    def section_hpbuildargs(self, idx, match):
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
-        if match:
-            if match.group(2) == '-D':
-                macro = match.group(4)
-                if not macro:
-                    self.ReportError(f'Unsupported -D line in HpBuildArgs section {match.group(0)}')
-                    return
-                value = match.group(6) if match.group(6) != None else ''
-                self.DefineMacro(macro, value)
-        # Else already taken care of
+    def matchBuildArgs(self, match):
+        if match.group(2) == '-D':
+            macro = match.group(4)
+            if not macro:
+                self.ReportError(f'Unsupported -D line in HpBuildArgs section {match.group(0)}')
+                return
+            value = match.group(6) if match.group(6) != None else ''
+            self.DefineMacro(macro, value)
 
+    #################
+    # Dump handlers #
+    #################
+
+    # Dump [EnvironmentVariables] section
     def DumpENVIRONMENTVARIABLES(self):
         if bool(self.ENVIRONMENTVARIABLES):
             print('    EnvironmentVariables:')
@@ -1307,6 +1306,7 @@ class ArgsParser(UEFIParser):                        #debug,                    
                 value = '' if not 'value' in item else FixUndefined(item['value'])
                 print(f"        {i}:{item['variable']}={value}")
 
+    # Dump [HpBuildArgs] section
     def DumpHPBUILDARGS(self):
         if bool(self.HPBUILDARGS):
             print('    HpBuildArgs:')
@@ -1315,6 +1315,7 @@ class ArgsParser(UEFIParser):                        #debug,                    
                 value = '' if not 'value' in item else  '=' + FixUndefined(item['value'])
                 print(f"        {i}:{item['option']}{arg}{value}")
 
+    # Dump [*PythonScripts] sections
     def DumpPYTHONSCRIPTS(self):
         if bool(self.PYTHONSCRIPTS):
             print('    PythonScripts:')
@@ -1324,12 +1325,12 @@ class ArgsParser(UEFIParser):                        #debug,                    
 
 # Class for parsing HPE Chipset files (HpChipsetInfo.txt)
 class ChipsetParser(UEFIParser):           #debug,                  regularExpression(s), arguments
-    ChipsetSections = { 'binaries':         (SHOW_BINARIES,         reBinariesEqu,        ('RR',     'BINARIES',         ['binary',  'path'])),
-                        'hpbuildargs':      (SHOW_HPBUILDARGS,      reHpBuildArgs,        (' R O O', 'HPBUILDARGS',      ['option',  'arg', 'value'])),
-                        'platformpackages': (SHOW_PLATFORMPACKAGES, rePlatformPackages,   ('R',      'PLATFORMPACKAGES', ['package'])),
-                        'snaps':            (SHOW_SNAPS,            reSnaps,              ('RR',     'SNAPS',            ['version', 'snap'])),
-                        'tagexceptions':    (SHOW_TAGEXCEPTIONS,    reTagExceptions,      ('R',      'TAGEXCEPTIONS',    ['tag'])),
-                        'upatches':         (SHOW_UPATCHES,         reuPatches,           ('RR',     'UPATCHES',         ['patch',   'name'])),
+    ChipsetSections = { 'binaries':         (SHOW_BINARIES,         reBinariesEqu,        ('RR',     'BINARIES',         ['binary',  'path'],         None)),
+                        'hpbuildargs':      (SHOW_HPBUILDARGS,      reHpBuildArgs,        (' R O O', 'HPBUILDARGS',      ['option',  'arg', 'value'], 'matchHpBuildArgs')),
+                        'platformpackages': (SHOW_PLATFORMPACKAGES, rePlatformPackages,   ('R',      'PLATFORMPACKAGES', ['package'],                 None)),
+                        'snaps':            (SHOW_SNAPS,            reSnaps,              ('RR',     'SNAPS',            ['version', 'snap'],         None)),
+                        'tagexceptions':    (SHOW_TAGEXCEPTIONS,    reTagExceptions,      ('R',      'TAGEXCEPTIONS',    ['tag'],                     None)),
+                        'upatches':         (SHOW_UPATCHES,         reuPatches,           ('RR',     'UPATCHES',         ['patch',   'name'],         None)),
     }
 
     # Class constructor
@@ -1346,37 +1347,55 @@ class ChipsetParser(UEFIParser):           #debug,                  regularExpre
         # Call constructor for parent class
         super().__init__(fileName, self.ChipsetSections)
 
-    # Handle a line in the [HpBuildArgs] section
-    # idx:   Index of regular expression used
+    ####################
+    # Section handlers #
+    ####################
+    #None
+        
+    ##################
+    # Match handlers #
+    ##################
+
+    # Handle a match in the [HpBuildArgs] section
     # match: Results of regex match
     # returns nothing
-    def section_hpbuildargs(self, idx, match):
-        ArgsParser.section_hpbuildargs(self, idx, match)
+    def matchHpBuildArgs(self, match):
+        ArgsParser.matchBuildArgs(self, match)
 
-    def DumpHPBUILDARGS(self):
-        ArgsParser.DumpHPBUILDARGS(self)
+    #################
+    # Dump handlers #
+    #################
 
+    # Dump [Binaries] section
     def DumpBINARIES(self):
         if bool(self.BINARIES):
             print('    Binaries:')
             for i, item in enumerate(self.BINARIES):
                 print(f"        {i}:{item['binary']} {FixUndefined(item['path'])}")
 
+    # Dump [HpBuildArgs] section
+    def DumpHPBUILDARGS(self):
+        ArgsParser.DumpHPBUILDARGS(self)
+
+    # Dump [PlatformPackages] section
     def DumpPLATFORMPACKAGES(self):
         if bool(self.PLATFORMPACKAGES):
             print('    PlatformPkgs:')
             for i, item in enumerate(self.PLATFORMPACKAGES):
                 print(f"        {i}:{FixUndefined(item['package'])}")
 
+    # Dump [Snaps] section
     def DumpSNAPS(self):
         if bool(self.SNAPS):
             print('    Snaps:')
             for i, item in enumerate(self.SNAPS):
                 print(f"        {i}:{item['version']}={item['snap']}")
 
+    # Dump [TagExceptions] section
     def DumpTAGEXCEPTIONS(self):
         UEFIParser.DumpSingle(self, self.TAGEXCEPTIONS, 'TagExceptions', 'tag')
 
+    # Dump [uPatches] section
     def DumpUPATCHES(self):
         if bool(self.UPATCHES):
             print('    uPatches:')
@@ -1384,26 +1403,29 @@ class ChipsetParser(UEFIParser):           #debug,                  regularExpre
                 print(f"        {i}:{item['patch']} {item['name']}")
 
 # Class for handling UEFI DSC files
+PCDBase =  ['pcdtokenspaceguidname', 'pcdname' ]
+PCDSize =  PCDBase + ['value', 'datumtype', 'maximumdatumsize']
+PCDHii  = PCDBase + ['variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue']
 class DSCParser(UEFIParser):                 #debug,               regularExpression(s),       arguments
-    DSCSections = { 'buildoptions':          (SHOW_BUILDOPTIONS,   reBuildOptions,             (" ORO",         'BUILDOPTIONS',   ['tag', 'option', 'value'])),
-                    'components':            (SHOW_COMPONENTS,     reComponents,               ("R",            'COMPONENTS',     ['inf'])),
-                    'defaultstores':         (SHOW_DEFAULTSTORES,  reDefaultStores,            ("R R",          'DEFAULTSTORES',  ['value', 'name'])),
-                    'defines':               (SHOW_DEFINES,        [reDefines, reEdkGlobals],  [("RO",          'DEFINES',        ['macro', 'value']),
-                                                                                                ("ORO",         'DEFINES',        ['macro', 'value'])]),
-                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,           ("R R",          'LIBRARYCLASSES', ['name', 'path'])),
-                    'pcdsdynamic':           (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsdynamicdefault':    (SHOW_PCDS,           rePcds,                     ("RR R O X X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsdynamicex':         (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsdynamicexdefault':  (SHOW_PCDS,           rePcds,                     ("RR O O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsdynamicexhii':      (SHOW_PCDS,           rePcds,                     ("RR R R R O O", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute'])),
-                    'pcdsdynamicexvpd':      (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           GetVpdOptionNames)),
-                    'pcdsdynamichii':        (SHOW_PCDS,           rePcds,                     ("RR R R R O O", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue'])),
-                    'pcdsdynamicvpd':        (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           GetVpdOptionNames)),
-                    'pcdsfeatureflag':       (SHOW_PCDS,           rePcds,                     ("RR O X X X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value'])),
-                    'pcdsfixedatbuild':      (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdspatchableinmodule': (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'skuids':                (SHOW_SKUIDS,         reSkuIds,                   ("RRO",          'SKUIDS',         ['value', 'skuid', 'parent'])),
-                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,           ("R",            'USEREXTENSIONS', ['ext'])),
+    DSCSections = { 'buildoptions':          (SHOW_BUILDOPTIONS,   reBuildOptions,             (" ORO",         'BUILDOPTIONS',   ['tag', 'option', 'value'],   'matchBuildOptions')),
+                    'components':            (SHOW_COMPONENTS,     reComponents,               ("R",            'COMPONENTS',     ['inf'],                      'matchComponents')),
+                    'defaultstores':         (SHOW_DEFAULTSTORES,  reDefaultStores,            ("R R",          'DEFAULTSTORES',  ['value', 'name'],            None)),
+                    'defines':               (SHOW_DEFINES,        [reDefines, reEdkGlobals],  [("RO",          'DEFINES',        ['macro', 'value'],           'matchDefines'),
+                                                                                                ("ORO",         'DEFINES',        ['macro', 'value'],           'matchEdkGlobals')]),
+                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,           ("R R",          'LIBRARYCLASSES', ['name', 'path'],             'matchLibraryClasses')),
+                    'pcdsdynamic':           (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
+                    'pcdsdynamicdefault':    (SHOW_PCDS,           rePcds,                     ("RR R O X X X", 'PCDS',           PCDSize,                      None)),
+                    'pcdsdynamicex':         (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
+                    'pcdsdynamicexdefault':  (SHOW_PCDS,           rePcds,                     ("RR O O O X X", 'PCDS',           PCDSize,                      None)),
+                    'pcdsdynamicexhii':      (SHOW_PCDS,           rePcds,                     ("RR R R R O O", 'PCDS',           PCDHii + ['hiiattribute'],    None)),
+                    'pcdsdynamicexvpd':      (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           GetVpdOptionNames,            None)),
+                    'pcdsdynamichii':        (SHOW_PCDS,           rePcds,                     ("RR R R R O O", 'PCDS',           PCDHii,                       None)),
+                    'pcdsdynamicvpd':        (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           GetVpdOptionNames,            None)),
+                    'pcdsfeatureflag':       (SHOW_PCDS,           rePcds,                     ("RR O X X X X", 'PCDS',           PCDBase +['value'],           None)),
+                    'pcdsfixedatbuild':      (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
+                    'pcdspatchableinmodule': (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
+                    'skuids':                (SHOW_SKUIDS,         reSkuIds,                   ("RRO",          'SKUIDS',         ['value', 'skuid', 'parent'], None)),
+                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,           ("R",            'USEREXTENSIONS', ['ext'],                      None)),
     }
 
     # Constructor
@@ -1432,6 +1454,7 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
     # message: Error message
     # returns nothing
     def directiveError(self, message):
+        global SHOW_ERROR_DIRECT1VE
         # Display error message (if currently processsing)
         if Debug(SHOW_ERROR_DIRECT1VE): print(f"{self.lineNumber}:error {message}")
         if self.process: self.ReportError(f"error({message})")
@@ -1452,60 +1475,61 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
     ####################
 
     def macro_SUPPORTED_ARCHITECTURES(self, value):
-        global SupportedArchitectures
+        global SupportedArchitectures, SHOW_SPECIAL_HANDLERS
         SupportedArchitectures = value.upper().replace('"', '').split("|")
         if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
 
     ####################
     # Section handlers #
     ####################
+    # None
 
-    # Handle a line in the [BuildOptions] section
-    # idx:   Index of regular expression used
+    ##################
+    # Match handlers #
+    ##################
+
+    # Handle a match in the [BuildOptions] section
     # match: Results of regex match
     # returns nothing
-    def section_buildoptions(self, idx, match):
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
+    def matchBuildOptions(self, match):
         # Look for line continuation character
-        if match and match.group(5):
+        if match.group(5):
             self.lineContinuation = True
 
-    # Handle a line in the [Components] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [Components] section
     # match: Results of regex match
     # returns nothing
-    def section_components(self, idx, match):
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
+    def matchComponents(self, match):
         # Look for subsection entry
-        if match and match.group(3) and match.group(3) == '{':
+        if match.group(3) and match.group(3) == '{':
             self.EnterSubsection()
 
-    # Handle a line in the [Defines] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [Defines] section for reDefines
     # match: Results of regex match
     # returns nothing
-    def section_defines(self, idx, match):
-        # There are two possible match patterns
-        if match:
-            macro, value = (match.group(1), match.group(2)) if len(match.groups()) == 2 else (match.group(2), match.group(3))
-            self.DefineMacro(macro, value if value != None else '')
-        # Else already taken care of
+    def matchDefines(self, match):
+        macro, value = (match.group(1), match.group(2))
+        self.DefineMacro(macro, value if value != None else '')
 
-    # Handle a line in the [libraryclasses] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [Defines] section for reEdkGlobal
     # match: Results of regex match
     # returns nothing
-    def section_libraryclasses(self, idx, match):
+    def matchEdkGlobal(self, match):
+        macro, value = (match.group(2), match.group(3))
+        self.DefineMacro(macro, value if value != None else '')
+
+    # Handle a match in the [libraryclasses] section for reLibraryClasses
+    # match: Results of regex match
+    # returns nothing
+    def matchLibraryClasses(self, match):
         global INFs
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
         INFs.append( (self.fileName, self.lineNumber, match.group(3).replace('"', '')) )
 
+    #################
+    # Dump handlers #
+    #################
+
+    # Dump [BuildOptions] section
     def DumpBUILDOPTIONS(self):
         if bool(self.BUILDOPTIONS):
             print('    BuildOptions:')
@@ -1514,9 +1538,18 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                 value = '' if not 'value' in item else '=' + FixUndefined(item['value'])
                 print(f"        {i}:{tag}{item['option']}{value}")
 
+    # Dump [Components] section
     def DumpCOMPONENTS(self):
         UEFIParser.DumpSingle(self, self.COMPONENTS, 'Components', 'inf', True)
 
+    # Dump [DefaultStores] section
+    def DumpDEFAULTSTORES(self):
+        if bool(self.DEFAULTSTORES):
+            print('    DefaultStores:')
+            for i, item in enumerate(self.DEFAULTSTORES):
+                print(f"        {i}:{item['value']}|{item['name']}")
+
+    # Dump [Defines] section
     def DumpDEFINES(self):
         if bool(self.DEFINES):
             print('    Defines:')
@@ -1524,12 +1557,14 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                 value = '' if item['value'] == None else FixUndefined(item['value'])
                 print(f"        {i}:{item['macro']}={value}")
 
+    # Dump [LibraryClasses] section
     def DumpLIBRARYCLASSES(self):
         if bool(self.LIBRARYCLASSES):
             print('    LibraryClasses:')
             for i, item in enumerate(self.LIBRARYCLASSES):
                 print(f"        {i}:{item['name']}|{FixUndefined(item['path'])}")
 
+    # Dump [Pcds*] sections
     def DumpPCDS(self):
         if bool(self.PCDS):
             print('    Pcds:')
@@ -1545,15 +1580,7 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                         values.append(eval("'' if not '{field}' in item else '|' + item['{field}']"))
                     print(f"        {i}:{item['pcdtokenspaceguidname']}.{item['pcdname']}{values[0]}{values[1]}{values[2]}{values[3]}{values[4]}")
 
-    def DumpUSEREXTENSIONS(self):
-        UEFIParser.DumpSingle(self, self.USEREXTENSIONS, 'UserExtensions', 'ext')
-
-    def DumpDEFAULTSTORES(self):
-        if bool(self.DEFAULTSTORES):
-            print('    DefaultStores:')
-            for i, item in enumerate(self.DEFAULTSTORES):
-                print(f"        {i}:{item['value']}|{item['name']}")
-
+    # Dump [SkuIds] section
     def DumpSKUIDS(self):
         if bool(self.SKUIDS):
             print('    SkuIds:')
@@ -1561,25 +1588,32 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                 parent = '' if not 'parent' in item else '|' + item['parent']
                 print(f"        {i}:{item['value']}|{item['skuid']}{parent}")
 
+    # Dump [UserExtensions] section
+    def DumpUSEREXTENSIONS(self):
+        UEFIParser.DumpSingle(self, self.USEREXTENSIONS, 'UserExtensions', 'ext')
+
 # Class for handling UEFI INF files
 class INFParser(UEFIParser):                 #debug,               regularExpression(s), arguments
-    INFSections = { 'binaries':              (SHOW_BINARIES,       reBinariesBar,        ("RR O O O O",   'BINARIES',       ['kind', 'path', 'tag1', 'tag2', 'tag3', 'tag4'])),
-                    'buildoptions':          (SHOW_BUILDOPTIONS,   reBuildOptions,       (" ORO",         'BUILDOPTIONS',   ['tag', 'option', 'value'])),
-                    'defines':               (SHOW_DEFINES,        reDefines,            ("RO",           'DEFINES',        ['macro', 'value'])),
-                    'depex':                 (SHOW_DEPEX,          reDepex,              ("R",            'DEPEX',          ['depex'])),
-                    'featurepcd':            (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'fixedpcd':              (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'guids':                 (SHOW_GUIDS,          reGuids,              ("R X",          'GUIDS',          ['guid'])),
-                    'includes':              (SHOW_INCLUDES,       reIncludes,           ("R",            'INCLUDES',       ['include'])),
-                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,     ("R O",          'LIBRARYCLASSES', ['name', 'path'])),
-                    'packages':              (SHOW_PACKAGES,       rePackages,           ("R",            'PACKAGES',       ['path'])),
-                    'patchpcd':              (SHOW_PCDS,           rePcds,               ("RR O O X X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcd':                   (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdex':                 (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'ppis':                  (SHOW_PPIS,           rePpis,               ("R X",          'PPIS',           ['ppi'])),
-                    'protocols':             (SHOW_PROTOCOLS,      reProtocolsBar,       ("R   OOO",      'PROTOCOLS',      ['protocol', 'not', 'pcdtokenspaceguidname', 'pcdname'])),
-                    'sources':               (SHOW_SOURCES,        reSources,            ("ROOOOOOO",     'SOURCES',        ['source', 'source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8'])),
-                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,     ("R",            'USEREXTENSIONS', ['ext'])),
+    Binaries    = ['kind', 'path', 'tag1', 'tag2', 'tag3', 'tag4']
+    Protocols   = ['protocol', 'not', 'pcdtokenspaceguidname', 'pcdname']
+    Sources     = ['source', 'source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8']
+    INFSections = { 'binaries':              (SHOW_BINARIES,       reBinariesBar,        ("RR O O O O",   'BINARIES',       Binaries,                   None)),
+                    'buildoptions':          (SHOW_BUILDOPTIONS,   reBuildOptions,       (" ORO",         'BUILDOPTIONS',   ['tag', 'option', 'value'], None)),
+                    'defines':               (SHOW_DEFINES,        reDefines,            ("RO",           'DEFINES',        ['macro', 'value'],         None)),
+                    'depex':                 (SHOW_DEPEX,          reDepex,              ("R",            'DEPEX',          ['depex'],                  None)),
+                    'featurepcd':            (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
+                    'fixedpcd':              (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
+                    'guids':                 (SHOW_GUIDS,          reGuids,              ("R X",          'GUIDS',          ['guid'],                   None)),
+                    'includes':              (SHOW_INCLUDES,       reIncludes,           ("R",            'INCLUDES',       ['include'],                None)),
+                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,     ("R O",          'LIBRARYCLASSES', ['name', 'path'],           None)),
+                    'packages':              (SHOW_PACKAGES,       rePackages,           ("R",            'PACKAGES',       ['path'],                   'matchPackages')),
+                    'patchpcd':              (SHOW_PCDS,           rePcds,               ("RR O O X X X", 'PCDS',           PCDSize,                    None)),
+                    'pcd':                   (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
+                    'pcdex':                 (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
+                    'ppis':                  (SHOW_PPIS,           rePpis,               ("R X",          'PPIS',           ['ppi'],                    None)),
+                    'protocols':             (SHOW_PROTOCOLS,      reProtocolsBar,       ("R   OOO",      'PROTOCOLS',      Protocols,                  None)),
+                    'sources':               (SHOW_SOURCES,        reSources,            ("ROOOOOOO",     'SOURCES',        Sources,                    None)),
+                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,     ("R",            'USEREXTENSIONS', ['ext'],                    None)),
     }
 
     # Items defined in the [Defines] section of an INF file (because these are all caps they will show up in dump)
@@ -1621,21 +1655,24 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
     ####################
     # Section handlers #
     ####################
+    # None
 
-    # Handle a line in the [Packages] section
-    # idx:   Index of regular expression used
+    ##################
+    # Match handlers #
+    ##################
+
+    # Handle a match in the [Packages] section for rePackages
     # match: Results of regex match
     # returns nothing
-    def section_packages(self, idx, match):
+    def matchPackages(self, match):
         global DECs
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
-        if match:
-            # Just in case there a some trailing C style comment on the line (which should be an error)!
-            DECs.append((self.fileName, self.lineNumber, match.group(1)))
-        # Else already taken care of
+        DECs.append((self.fileName, self.lineNumber, match.group(1)))
 
+    #################
+    # Dump handlers #
+    #################
+
+    # Dump [Binaries] section
     def DumpBINARIES(self):
         if bool(self.BINARIES):
             print('    Binaries:')
@@ -1645,12 +1682,15 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                     values.append(eval("'' if not '{field}' in item else '|' + item['{field}']"))
                 print(f"        {i}:{item['type']}.{FixUndefined(item['path'])}{values[0]}{values[1]}{values[2]}{values[3]}")
 
+    # Dump [BuildOptions] section
     def DumpBUILDOPTIONS(self):
         DSCParser.DumpBUILDOPTIONS(self)
 
+    # Dump [Defines] section
     def DumpDEFINES(self):
         DSCParser.DumpDEFINES(self)
 
+    # Dump [DepEx] section
     def DumpDEPEX(self):
         if bool(self.DEPEX):
             depex = ''
@@ -1659,24 +1699,31 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                 depex += ' '.join(items) + ' '
             print(f"    DepEx: {depex.rstrip()}")
 
+    # Dump [Guids] section
     def DumpGUIDS(self):
         UEFIParser.DumpSingle(self, self.GUIDS, 'GUIDs', 'guid')
 
+    # Dump [Includes] section
     def DumpINCLUDES(self):
         UEFIParser.DumpSingle(self, self.INCLUDES, 'Includes', 'include', True)
 
+    # Dump [LibraryClasses] section
     def DumpLIBRARYCLASSES(self):
         DSCParser.DumpLIBRARYCLASSES(self)
 
+    # Dump [Packages] section
     def DumpPACKAGES(self):
         UEFIParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
 
+    # Dump [*Pcd*] sections
     def DumpPCDS(self):
         DSCParser.DumpPCDS(self)
 
+    # Dump [Ppis] section
     def DumpPPIS(self):
         UEFIParser.DumpSingle(self, self.PPIS, 'PPIs', 'ppi')
 
+    # Dump [Protocols] section
     def DumpPROTOCOLS(self):
         if bool(self.PROTOCOLS):
             print('    Protocols:')
@@ -1686,6 +1733,7 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                 pcdname = '' if not 'pcdname'               in item else '.' + item['pcdname']
                 print(f"        {i}:{item['protocol']}{inv}{space}{pcdname}")
 
+    # Dump [Sources] section
     def DumpSOURCES(self):
         if bool(self.SOURCES):
             print('    Sources:')
@@ -1695,26 +1743,27 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
                     values.append(eval("'' if not '{field}' in item else '|' + item['{field}']"))
                 print(f"        {i}:{item['source']}{values[0]}{values[1]}{values[2]}{values[3]}{values[4]}{values[5]}{values[6]}")
 
+    # Dump [UserExtensions] section
     def DumpUSEREXTENSIONS(self):
         DSCParser.DumpUSEREXTENSIONS(self)
 
 # Class for handling UEFI DEC files
 class DECParser(UEFIParser):                #debug,                regularExpression(s), arguments
-    DECSections = { 'defines':               (SHOW_DEFINES,        reDefines,            ("RO",           'DEFINES',        ['macro', 'value'])),
-                    'guids':                 (SHOW_GUIDS,          reGuids,              ("R R",          'GUIDS',          ['guid'])),
-                    'includes':              (SHOW_INCLUDES,       reIncludes,           ("R",            'INCLUDES',       ['include'])),
-                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,     ("R R",          'LIBRARYCLASSES', ['name', 'path'])),
-                    'pcdsdynamic':           (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsdynamicex':         (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsfeatureflag':       (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdsfixedatbuild':      (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'pcdspatchableinmodule': (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])),
-                    'ppis':                  (SHOW_PPIS,           rePpis,               ("R R",          'PPIS',           ['ppi'])),
-                    'protocols':             (SHOW_PROTOCOLS,      reProtocolsEqu,       ("R R",          'PROTOCOLS',      ['protocol'])),
-                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,     ("R",            'USEREXTENSIONS', ['ext'])),
+    DECSections = { 'defines':               (SHOW_DEFINES,        reDefines,            ("RO",           'DEFINES',        ['macro', 'value'], 'matchDefines')),
+                    'guids':                 (SHOW_GUIDS,          reGuids,              ("R R",          'GUIDS',          ['guid'],           None)),
+                    'includes':              (SHOW_INCLUDES,       reIncludes,           ("R",            'INCLUDES',       ['include'],        None)),
+                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,     ("R R",          'LIBRARYCLASSES', ['name', 'path'],   None)),
+                    'pcdsdynamic':           (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
+                    'pcdsdynamicex':         (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
+                    'pcdsfeatureflag':       (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
+                    'pcdsfixedatbuild':      (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
+                    'pcdspatchableinmodule': (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
+                    'ppis':                  (SHOW_PPIS,           rePpis,               ("R R",          'PPIS',           ['ppi'],            None)),
+                    'protocols':             (SHOW_PROTOCOLS,      reProtocolsEqu,       ("R R",          'PROTOCOLS',      ['protocol'],       None)),
+                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,     ("R",            'USEREXTENSIONS', ['ext'],            None)),
                     # Below are specail section handlers that can only occur when processing a subsection!
-                    'packages':              (SHOW_PACKAGES,       rePackages,           ("R",            'PACKAGES',       ['path'])),
-                    'headerfiles':           (SHOW_HEADERFILES,    reHeaderFiles,        ("R",            'HEADERFILES',    ['path'])),
+                    'packages':              (SHOW_PACKAGES,       rePackages,           ("R",            'PACKAGES',       ['path'],           'matchPackages')),
+                    'headerfiles':           (SHOW_HEADERFILES,    reHeaderFiles,        ("R",            'HEADERFILES',    ['path'],           'matchHeaderFiles')),
     }
 
     ###################
@@ -1736,132 +1785,123 @@ class DECParser(UEFIParser):                #debug,                regularExpres
         self.USEREXTENSIONS = []
         self.PACKAGES       = []
         self.HEADERFILES    = []
-        # Use same handler for all PCD sections
-        handler             = self.section_pcds
-        for info in self.DECSections:
-            if info.startswith('pcds'):
-                setattr(self, f'section_{info}', handler)
         # Call constructor for parent class
         super().__init__(fileName, self.DECSections)
 
     ####################
     # Section handlers #
     ####################
+    # None
 
-    # Handle a line in the [Defines] section
-    # idx:   Index of regular expression used
+    ##################
+    # Match handlers #
+    ##################
+
+    # Handle a match in the [Defines] section for reDefines
     # match: Results of regex match
     # returns nothing
-    def section_defines(self, idx, match):
-        # There are two possible match patterns
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
-        if match:
-            macro, value = (match.group(1), match.group(2)) if len(match.groups()) == 2 else (match.group(2), match.group(3))
-            self.DefineMacro(macro, value if value != None else '')
-        # Else already taken care of
+    def matchDefines(self, match):
+        DSCParser.matchDefines(self, match)
 
-    # Handle a line in any of the PCD sections
-    # idx:   Index of regular expression used
+    # Handle a match in any of the PCD sections for rePcd
     # match: Results of regex match
     # returns nothing
-    def section_pcds(self, idx, match):
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
+    def matchPcds(self, match):
         # See if we need to enter subsection
-        if match and match.group(13) and match.group(13) == '{':
+        if match.group(13) and match.group(13) == '{':
             self.EnterSubsection()
 
-    #############################################
-    # Section handlers (only when inSubsection) #
-    #############################################
+    ###########################################
+    # Match handlers (only when inSubsection) #
+    ###########################################
 
-    # Handle a line in the [Protocols] section
-    # idx:   Index of regular expression used
+    # Handle a match in the <Packaves> subsection
     # match: Results of regex match
     # returns nothing
-    def section_packages(self, idx, match):
+    def matchPackages(self, match):
         global DECs
         # Only allow this section handler if in a subsection
         if not self.inSubsection:
             self.ReportError('section packages cannot be used outside of braces')
             return
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
-        if match:
-            # Just in case there a some trailing C style comment on the line (which should be an error)!
-            DECs.append((self.fileName, self.lineNumber, match.group(1)))
-        # Else already taken care of
+        DECs.append((self.fileName, self.lineNumber, match.group(1)))
 
-    # Handle a line in the [Protocols] section
-    # idx:   Index of regular expression used
+    # Handle a match in the <HeaderFiles> subsection
     # match: Results of regex match
     # returns nothing
-    def section_headerfiles(self, idx, match):
+    def matchHeaderFiles(self, match):
         # Only allow this section handler if in a subsection
         if not self.inSubsection:
             self.ReportError('section headerfiles cannot be used outside of braces')
-        # No regular expression index is expected!
-        if idx != None:
-            self.ReportError('Unexpected regular expression index encountered')
 
+    #################
+    # Dump handlers #
+    #################
+
+    # Dump [Defines] section
     def DumpDEFINES(self):
         DSCParser.DumpDEFINES(self)
 
+    # Dump [Guids] section
     def DumpGUIDS(self):
         UEFIParser.DumpSingle(self, self.GUIDS, 'GUIDs', 'guid')
 
+    # Dump [Includes] section
     def DumpINCLUDES(self):
         UEFIParser.DumpSingle(self, self.INCLUDES, 'Includes', 'include', True)
 
+    # Dump [LibraryClasses] section
     def DumpLIBRARYCLASSES(self):
         DSCParser.DumpLIBRARYCLASSES(self)
 
+    # Dump [Ppis] section
     def DumpPPIS(self):
         UEFIParser.DumpSingle(self, self.PPIS, 'PPIs', 'ppi')
 
+    # Dump [Pcd*] sections
     def DumpPCDS(self):
         DSCParser.DumpPCDS(self)
 
+    # Dump [Protocols] section
     def DumpPROTOCOLS(self):
         UEFIParser.DumpSingle(self, self.PROTOCOLS, 'Protocols', 'protocol')
 
-    def DumpPACKAGES(self):
-        UEFIParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
-
-    def DumpHEADERFILES(self):
-        UEFIParser.DumpSingle(self, self.HEADERFILES, 'HeaderFiles', 'path', True)
-
+    # Dump [UserExTensions] section
     def DumpUSEREXTENSIONS(self):
         DSCParser.DumpUSEREXTENSIONS(self)
 
+    # Dump <Packeges> subsection
+    def DumpPACKAGES(self):
+        UEFIParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
+
+    # Dump <HeaderFiles> subsection
+    def DumpHEADERFILES(self):
+        UEFIParser.DumpSingle(self, self.HEADERFILES, 'HeaderFiles', 'path', True)
+
 # Class for handling UEFI FDF files
 class FDFParser(UEFIParser):   #debug,        regularExpression(s),                    handlerArguments
-    FdRegExes   = [reDataStart, reData, reEndBrace, reDefine, reDefines, reSet, reOfsSz]
+    FdRegExes   = [reDataStart, reDataAdd, reEndBrace, reDefine, reDefines, reSet, reOfsSz]
     FvRegExes   = [reDefine, reSet, reDefines, reApriori, reInf, reFile, reSection, reEndBrace, rePath]
-    FDFSections = { 'capsule': (SHOW_CAPSULE, [reSet, reCapsule],                      [(" RR",         'CAPSULES',  ['token', 'value']),
-                                                                                        ("RR",          'CAPSULES',  ['token', 'value'])]),
-                    'defines': (SHOW_FD,      reDefines,                                ("RO",          'DEFINES',   ['macro', 'value'])),
-                    'fd':      (SHOW_FD,      FdRegExes,                               [("",            None,        None),                    # reDataStart
-                                                                                        ("R",           None,        None),                    # reData
-                                                                                        ("",            None,        None),                    # reEndBrace (for reDataStart)
-                                                                                        (" RR",         'FDS',       ['token', 'value']),      # reDefine
-                                                                                        ("RR",          'FDS',       ['token', 'value']),      # reDefines
-                                                                                        (" RR",         'FDS',       ['token', 'value']),      # reSet
-                                                                                        ("R R",         'FDS',       ['offset', 'size'])]),    # reOfsSz
-                    'fv':      (SHOW_FV,      FvRegExes,                               [(" RR",         'DEFINES',   ['macro', 'value']),      # reDefine
-                                                                                        (" RR",         'FVS',       ['token', 'value']),      # reSet
-                                                                                        ("RR",          'FVS',       ['token', 'value']),      # reDefines
-                                                                                        ("R",           None,        None),                    # reApriori
-                                                                                        ("O  R",        None,        None),                    # reInf
-                                                                                        ("RRO",         None,        None),                    # reFile
-                                                                                        ("R",           None,        None),                    # reSection
-                                                                                        ("",            None,        None),                    # end brace (for reApriori, reFile, and some reSection)
-                                                                                        ("R",            None,        None)]),                 # rePath
-                    'rule':    (SHOW_RULE,    reRule,                                   ("R",           'RULES',     ['rule'])),
+    FDFSections = { 'capsule': (SHOW_CAPSULE, [reSet, reCapsule],                      [(" RR",         'CAPSULES',  ['token', 'value'], None),             # reSet
+                                                                                        ("RR",          'CAPSULES',  ['token', 'value'], None)]),           # reCapsule
+                    'defines': (SHOW_FD,      reDefines,                                ("RO",          'DEFINES',   ['macro', 'value'], None)),
+                    'fd':      (SHOW_FD,      FdRegExes,                               [("",            None,        None,               'matchDataStart'), # reDataStart
+                                                                                        ("R",           None,        None,               'matchDataAdd'),   # reDataAdd
+                                                                                        ("",            None,        None,               'matchDataEnd'),   # reEndBrace (for reDataStart)
+                                                                                        (" RR",         'FDS',       ['token', 'value'], None),             # reDefine
+                                                                                        ("RR",          'FDS',       ['token', 'value'], None),             # reDefines
+                                                                                        (" RR",         'FDS',       ['token', 'value'], None),             # reSet
+                                                                                        ("R R",         'FDS',       ['offset', 'size'], None)]),           # reOfsSz
+                    'fv':      (SHOW_FV,      FvRegExes,                               [(" RR",         'DEFINES',   ['macro', 'value'], None),             # reDefine
+                                                                                        (" RR",         'FVS',       ['token', 'value'], None),             # reSet
+                                                                                        ("RR",          'FVS',       ['token', 'value'], 'matchDefines'),   # reDefines
+                                                                                        ("R",           None,        None,               'matchApriori'),   # reApriori
+                                                                                        ("O  R",        None,        None,               'matchInf'),       # reInf
+                                                                                        ("RRO",         None,        None,               'matchFile'),      # reFile
+                                                                                        ("R",           None,        None,               'matchSection'),   # reSection
+                                                                                        ("",            None,        None,               'matchEndDesc'),   # reEndBrace (for reApriori, reFile, and some reSection)
+                                                                                        ("R",            None,        None,              'matchPath')]),    # rePath
+                    'rule':    (SHOW_RULE,    reRule,                                   ("R",           'RULES',     ['rule'],           None)),
     }
 
     # Items defiend in FV sections of an FDF file
@@ -1920,38 +1960,90 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     ####################
     # Section handlers #
     ####################
+    # None
 
-    # Handle a line in the [Defines] section
-    # idx:   Index of regular expression used
+    ##################
+    # Match handlers #
+    ##################
+
+    # Handle a match in the [FD] section that matchs reDataStart
     # match: Results of regex match
     # returns nothing
-    def section_defines(self, idx, match):
+    def matchDataStart(self, match):
+        global SHOW_FD
+        self.data = []
+        if Debug(SHOW_FD): print(f'{self.lineNumber}:Entering data list')
+
+    # Handle a match in the [FD] section that matchs reDataAdd
+    # match: Results of regex match
+    # returns nothing
+    def matchDataAdd(self, match):
+        global SHOW_FD
+        data = match.group(0).replace(',', '').split()
+        for datum in data:
+            self.data.append(datum)
+        if Debug(SHOW_FD): print(f'{self.lineNumber}:{match.group(0)}')
+
+    # Handle a match in the [FD] section that matchs reEndBrace
+    # match: Results of regex match
+    # returns nothing
+    def matchDataEnd(self, match):
+        global SHOW_FD
+        self.FDS.append(self.data)
+        self.data = None
+        if Debug(SHOW_FD): print(f'{self.lineNumber}:Exiting data list')
+
+    # Handle a match in the [fv] section that matches reDefines
+    # match: Results of regex match
+    # returns nothing
+    def matchDefines(self, match):
+        #TBD look for BLOCKS
         pass
 
-    # Handle a line in the [Defines] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [fv] section that matches reApriori
     # match: Results of regex match
     # returns nothing
-    def section_fd(self, idx, match):
-        if match:
-            if idx == 0:    # reDataStart
-                self.data = []
-                if Debug(SHOW_FD): print(f'{self.lineNumber}:Entering data list')
-            elif idx == 1:  # reData
-                data = match.group(0).replace(',', '').split()
-                for datum in data:
-                    self.data.append(datum)
-                if Debug(SHOW_FD): print(f'{self.lineNumber}:{match.group(0)}')
-            elif idx == 2:  # reEndBrace
-                self.FDS.append(self.data)
-                self.data = None
-                if Debug(SHOW_FD): print(f'{self.lineNumber}:Exiting data list')
+    def matchApriori(self, match):
+        global SHOW_FV
+        # Get APRIORI type
+        self.apriori = match.group(1)
+        # Start apriori list
+        self.APRIORI[self.apriori] = []
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:Entering {self.apriori} apriori list')
 
-    # Handle a line in the [Defines] section
-    # idx:   Index of regular expression used
+    # Handle a match in the [fv] section that matches reInf
     # match: Results of regex match
     # returns nothing
-    def section_fv(self, idx, match):
+    def matchInf(self, match):
+        global SHOW_FV
+        # Check for Apriori
+        inf = match.group(4)
+        if self.apriori:
+            self.APRIORI[self.apriori].append(inf)
+            if Debug(SHOW_FV): print(f'{self.lineNumber}:{inf} added to {self.apriori} list (#{len(self.APRIORI[self.apriori])})')
+        # Normal INF entry
+        else:
+            if Debug(SHOW_FV): msg = ''
+            # Add any detected options
+            opts = []
+            if match.group(1):
+                items = match.group(1).rstrip().split('=')
+                if len(items) % 2 != 0:
+                    self.ReportError('Unbalanced INF options encountered')
+                    return
+                for i in range(0, len(items), 2):
+                    opt = items[i].rstrip()
+                    val = items[i + 1].lstrip()
+                    opts.append((opt, val))
+                    if Debug(SHOW_FV): msg += f'{opt}={val} '
+            self.INFS.append((inf, opts))
+            if Debug(SHOW_FV): print(f'{self.lineNumber}:INF {inf} {msg}')
+
+    # Handle a match in the [fv] section that matches reFile
+    # match: Results of regex match
+    # returns nothing
+    def matchFile(self, match):
+        global SHOW_FV, SHOW_SUBSECTION_ENTER
         global Files
         def HandleOptionValue(token, msg):
             value  = token
@@ -1962,219 +2054,177 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
             if Debug(SHOW_FV): msg += f" {token}={value}"
             # Nothing else is expected now
             return (msg, None)
-        if match:
-            # Depends on regex index
-            if idx == 3:  # reApriori
-                # Get APRIORI type
-                self.apriori               = match.group(1)
-                # Start apriori list
-                self.APRIORI[self.apriori] = []
-                if Debug(SHOW_FV): print(f'{self.lineNumber}:Entering {self.apriori} apriori list')
-            elif idx == 4:  # reInf
-                # Check for Apriori
-                inf = match.group(4)
-                if self.apriori:
-                    self.APRIORI[self.apriori].append(inf)
-                    if Debug(SHOW_FV): print(f'{self.lineNumber}:{inf} added to {self.apriori} list (#{len(self.APRIORI[self.apriori])})')
-                # Normal INF entry
-                else:
-                    if Debug(SHOW_FV): msg = ''
-                    # Add any detected options
-                    opts = []
-                    if match.group(1):
-                        items = match.group(1).rstrip().split('=')
-                        if len(items) % 2 != 0:
-                            self.ReportError('Unbalanced INF options encountered')
-                            return
-                        for i in range(0, len(items), 2):
-                            opt = items[i].rstrip()
-                            val = items[i + 1].lstrip()
-                            opts.append((opt, val))
-                            if Debug(SHOW_FV): msg += f'{opt}={val} '
-                    self.INFS.append((inf, opts))
-                    if Debug(SHOW_FV): print(f'{self.lineNumber}:INF {inf} {msg}')
-            elif idx == 5:  # reFile
-                msg = ''
-                kind = match.group(1)
-                guid = match.group(2)
-                self.file = {'type': kind, 'guid': guid, 'options': [], 'sections': []}
-                options   = match.group(3)
-                if options:
-                    expect = None
-                    for token in options.split():
-                        # Is something expected
-                        if expect:
-                            # Is an equal expected?
-                            if expect == '=':
-                                # Was an equal found?
-                                if token == '=':
-                                    # Now the value is expected
-                                    expect = 'value'
-                                    continue
-                                # Handle case where equal attached to value
-                                elif token.startswith('='):
-                                    msg, expect = HandleOptionValue(token[1:], msg)
-                                    continue
-                                else:
-                                    self.ReportError('Option {option} missing value')
-                                    return
-                            # Must be the value that is expected
-                            else:
-                                msg, expect = HandleOptionValue(token, msg)
-                                continue     
-                        # See if we have a specail case   
-                        option =  token.upper()
-                        if option in ['CHECKSUM', 'FIXED']:
-                            # Save special option and implied value
-                            self.file['options'].append({'option': option, 'value': 'TRUE'})
-                            if Debug(SHOW_FV): msg += f" {option}=TRUE"
+        msg = ''
+        kind = match.group(1)
+        guid = match.group(2)
+        self.file = {'type': kind, 'guid': guid, 'options': [], 'sections': []}
+        options   = match.group(3)
+        if options:
+            expect = None
+            for token in options.split():
+                # Is something expected
+                if expect:
+                    # Is an equal expected?
+                    if expect == '=':
+                        # Was an equal found?
+                        if token == '=':
+                            # Now the value is expected
+                            expect = 'value'
+                            continue
+                        # Handle case where equal attached to value
+                        elif token.startswith('='):
+                            msg, expect = HandleOptionValue(token[1:], msg)
+                            continue
                         else:
-                            # Better have ALIGNEMENT in it
-                            if not option.startswith('ALIGNMENT'):
-                                self.ReportError('Unsupported FILE option encounteres: {opt}')
-                                return
-                            # Take care of case where option and value are not seprated by spaces
-                            if '=' in option:
-                                option = option.replace('=', ' ')
-                                items = option.split()
-                                option = items[0].upper()
-                                if len(items) > 1:
-                                    # Save the option and value
-                                    value = items[1].strip()
-                                    self.file['options'].append({'option': option, 'value': value})
-                                    if Debug(SHOW_FV): msg += f" {option}={value}"
-                                else:
-                                    # = was attached so the value is expected
-                                    self.file['options'].append(option)   # Save option for later
-                                    expect = 'value'
-                            else:
-                                # = was not attach so the = is expected
-                                self.file['options'].append(token)        # Save option for later
-                                expect = '='
-                if Debug(SHOW_FV): print(f'{self.lineNumber}:FILE {kind} {guid}{msg}')
-                if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering file descriptor')
-            elif idx == 6:  # reSection
-                if Debug(SHOW_FV): msg = ''
-                if self.file == None:
-                    self.ReportError('SECTION not allowed outstide of file description')
-                    return
-                # Tokenize secion info
-                items = match.group(1).split()
-                # Start new section descriptor
-                sect = {'options': []}
-                # Determine section type
-                kind = items[0].upper()
-                # Handle GUIDED type (format GUIDED <guid> [options])
-                if kind == 'GUIDED':
-                    if len(items) < 2:
-                        self.ReportError('SECTION GUIDED uncountered with no GUID')
+                            self.ReportError('Option {option} missing value')
+                            return
+                    # Must be the value that is expected
+                    else:
+                        msg, expect = HandleOptionValue(token, msg)
+                        continue     
+                # See if we have a specail case   
+                option =  token.upper()
+                if option in ['CHECKSUM', 'FIXED']:
+                    # Save special option and implied value
+                    self.file['options'].append({'option': option, 'value': 'TRUE'})
+                    if Debug(SHOW_FV): msg += f" {option}=TRUE"
+                else:
+                    # Better have ALIGNEMENT in it
+                    if not option.startswith('ALIGNMENT'):
+                        self.ReportError('Unsupported FILE option encounteres: {opt}')
                         return
-                    value = items[1]
-                    sect['type'] = {'GUIDED': value}
-                    i = 2   # Look for options starting here!
-                    self.guided = {'sections': []}      # Start guided descriptor
-                # Handle other types (format <type> = <value> [options])
-                else:
-                    if len(items) < 3 or items[1] != '=':
-                        self.ReportError(f'Invalid SECTION {kind} uncountered')
-                    value = items[2]
-                    sect['type'] = {'type': kind, 'value': value}
-                    i = 3   # Look for options starting here!
-                # Handle options
-                while i < len(items):
-                    if len(items) < i + 2 or items[i+1] != '=':
-                        self.ReportError(f'Invalid {opt} option uncountered')
-                    opt = items[i]
-                    val = items[i+2]
-                    sect['options'].append({'option': opt, 'value': val})
-                    if Debug(SHOW_FV): msg += f'{opt}={val} '
-                    i += 3
-                # Either add section info to current descriptor
-                if kind != 'GUIDED':
-                    if self.guided != None:
-                        self.guided['sections'].append(sect)
+                    # Take care of case where option and value are not seprated by spaces
+                    if '=' in option:
+                        option = option.replace('=', ' ')
+                        items = option.split()
+                        option = items[0].upper()
+                        if len(items) > 1:
+                            # Save the option and value
+                            value = items[1].strip()
+                            self.file['options'].append({'option': option, 'value': value})
+                            if Debug(SHOW_FV): msg += f" {option}={value}"
+                        else:
+                            # = was attached so the value is expected
+                            self.file['options'].append(option)   # Save option for later
+                            expect = 'value'
                     else:
-                        self.file['sections'].append(sect)
-                # Or save it if it is guided
-                else:
-                    self.sect = sect
-                if Debug(SHOW_FV): print(f'{self.lineNumber}:SECTION {kind} {value} {msg}')
-                if Debug(SHOW_SUBSECTION_ENTER) and kind == 'GUIDED': print(f'{self.lineNumber}:Entering guided section')
-            elif idx == 7:  # reEndBrace
-                # End apriori list (if applicable)
-                if self.apriori != None:
-                    # Clear Apriori list
-                    if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
-                    self.apriori = None
-                # End compressed descriptor (if applicable)
-                elif self.compress != None:
-                    # TBD add compressed info to whereever it belongs
-                    self.compress = None
-                # End guided descriptor (if applicable)
-                elif self.guided != None:
-                    # Add guided descriptor to appropriate item
-                    if self.compress != None:
-                        self.compress['guided'] = self.guided
-                        if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compress descriptor')
-                    elif self.sect != None:
-                        self.sect['guided']  = self.guided
-                        self.file['sections'].append(self.sect)
-                        self.sect            = None
-                        if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided section')
-                    else:
-                        self.file['guided']     = self.guided
-                        if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
-                    # Clear guided descriptor
-                    self.guided = None
-                # End file descriptor (if applicable)
-                elif self.file != None:
-                    # Add file
-                    self.FILES.append(self.file)
-                    self.file = None
-                    if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
-                else:
-                    self.ReportError('End brace found without matching start brace')
-            elif idx == 8:  # rePath
-                if self.file == None:
-                    self.ReportError('FV path not allowed outstide of file description')
-                    return
-                if self.compress != None or self.guided != None or self.sect != None:
-                    self.ReportError('FV path not allowed inside other descriptors')
-                    return
-                # File type must be RAW
-                if not self.file['type'] == 'RAW':
-                    self.ReportError('FV path only allowed with RAW file types')
-                    return
-                path = match.group(1)
-                self.file['path'] = path
-                if Debug(SHOW_FV): print(f'{self.lineNumber}:{path}')
-            #elif idx == 0:    # reDefine
-            #    # TBD check what is being defined (there are only a limited set of items allowed!)
-            #    pass
-            #elif idx == 1:  # reSet
-            #    # TBD make sure PCD exists and can be set as indicated
-            #    pass
-            #elif idx == 2:  # reDefines
-            #    # TBD look for BLOCK statements
-            #    pass
+                        # = was not attach so the = is expected
+                        self.file['options'].append(token)        # Save option for later
+                        expect = '='
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:FILE {kind} {guid}{msg}')
+        if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering file descriptor')
 
-    def OutsideLineHandler(self, this, line):
-        global reFile
-        # Save current linenumber and filename
-        saved = (self.lineNumber, self.fileName)
-        # Assume line number and filename this
-        self.lineNumber, self.fileName = (this.lineNumber, this.fileName)
-        # Process the outside line
-        for i, regEx in enumerate([reFile, reSection, reEndBrace, rePath]):
-            match = re.match(regEx, line, re.IGNORECASE)
-            if match:
-                self.section_fv(i + 5, match)
-                break
+    # Handle a match in the [fv] section that matches reSection
+    # match: Results of regex match
+    # returns nothing
+    def matchSection(self, match):
+        global SHOW_FV, SHOW_SUBSECTION_ENTER
+        if Debug(SHOW_FV): msg = ''
+        if self.file == None:
+            self.ReportError('SECTION not allowed outstide of file description')
+            return
+        # Tokenize secion info
+        items = match.group(1).split()
+        # Start new section descriptor
+        sect = {'options': []}
+        # Determine section type
+        kind = items[0].upper()
+        # Handle GUIDED type (format GUIDED <guid> [options])
+        if kind == 'GUIDED':
+            if len(items) < 2:
+                self.ReportError('SECTION GUIDED uncountered with no GUID')
+                return
+            value = items[1]
+            sect['type'] = {'GUIDED': value}
+            i = 2   # Look for options starting here!
+            self.guided = {'sections': []}      # Start guided descriptor
+        # Handle other types (format <type> = <value> [options])
         else:
-            self.ReportError('Unsupported line outside of section')
-        # Restore linenumber and filename
-        self.lineNumber, self.fileName = saved
-    
+            if len(items) < 3 or items[1] != '=':
+                self.ReportError(f'Invalid SECTION {kind} uncountered')
+            value = items[2]
+            sect['type'] = {'type': kind, 'value': value}
+            i = 3   # Look for options starting here!
+        # Handle options
+        while i < len(items):
+            if len(items) < i + 2 or items[i+1] != '=':
+                self.ReportError(f'Invalid {opt} option uncountered')
+            opt = items[i]
+            val = items[i+2]
+            sect['options'].append({'option': opt, 'value': val})
+            if Debug(SHOW_FV): msg += f'{opt}={val} '
+            i += 3
+        # Either add section info to current descriptor
+        if kind != 'GUIDED':
+            if self.guided != None:
+                self.guided['sections'].append(sect)
+            else:
+                self.file['sections'].append(sect)
+        # Or save it if it is guided
+        else:
+            self.sect = sect
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:SECTION {kind} {value} {msg}')
+        if Debug(SHOW_SUBSECTION_ENTER) and kind == 'GUIDED': print(f'{self.lineNumber}:Entering guided section')
+
+    # Handle a match in the [fv] section that matches reEndBrace
+    # match: Results of regex match
+    # returns nothing
+    def matchEndDesc(self, match):
+        # End apriori list (if applicable)
+        if self.apriori != None:
+            # Clear Apriori list
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
+            self.apriori = None
+        # End compressed descriptor (if applicable)
+        elif self.compress != None:
+            # TBD add compressed info to whereever it belongs
+            self.compress = None
+        # End guided descriptor (if applicable)
+        elif self.guided != None:
+            # Add guided descriptor to appropriate item
+            if self.compress != None:
+                self.compress['guided'] = self.guided
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compress descriptor')
+            elif self.sect != None:
+                self.sect['guided']  = self.guided
+                self.file['sections'].append(self.sect)
+                self.sect            = None
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided section')
+            else:
+                self.file['guided']     = self.guided
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
+            # Clear guided descriptor
+            self.guided = None
+        # End file descriptor (if applicable)
+        elif self.file != None:
+            # Add file
+            self.FILES.append(self.file)
+            self.file = None
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
+        else:
+            self.ReportError('End brace found without matching start brace')
+
+    # Handle a match in the [fv] section that matches rePath
+    # match: Results of regex match
+    # returns nothing
+    def matchPath(self, match):
+        global SHOW_FV
+        # Can only have this when a file is being described and when one of the other descriptors is active
+        if self.file == None or (self.compress != None or self.guided != None or self.sect != None):
+            self.ReportError('FV path not allowed outstide of file description')
+            return
+        # File type must be RAW
+        if not self.file['type'] == 'RAW':
+            self.ReportError('FV path only allowed with RAW file types')
+            return
+        path = match.group(1)
+        self.file['path'] = path
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:{path}')
+
+    #################
+    # Dump handlers #
+    #################
+
     def DumpTokenValue(self, list, title):
         if bool(list):
             print(f'    {title}:')
@@ -2250,6 +2300,31 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                     section = section['type']
                     print (f"            {j}:SECTION {section['type']} {section['value']}{options}")
 
+    ##################
+    # Other handlers #
+    ##################
+
+    # For handling lines outside of a section
+    # this: Self object of current file being processed
+    # line: Contents of current line
+    # returns nothing
+    def OutsideLineHandler(self, this, line):
+        global reFile, reSection, reEndBrace, rePath
+        # Save current lineNumber and fileName
+        saved = (self.lineNumber, self.fileName)
+        # Assume lineNumber and fileName object where outside line has been encounteered
+        self.lineNumber, self.fileName = (this.lineNumber, this.fileName)
+        # Process the outside line
+        for i, regEx in enumerate([reFile, reSection, reEndBrace, rePath]): # These are all that are allowed!
+            match = re.match(regEx, line, re.IGNORECASE)
+            if match:
+                [self.matchFile, self.matchSection, self.matchEndDesc, self.matchPath][i](match)
+                break
+        else:
+            self.ReportError('Unsupported line outside of section')
+        # Restore lineNumber and filName
+        self.lineNumber, self.fileName = saved
+
 class PlatformInfo:
     ###################
     # Private methods #
@@ -2284,7 +2359,7 @@ class PlatformInfo:
 
     # Set environment variable and also save in Macros
     def __setEnvironment__(self, variable, value):
-        global isWindows
+        global isWindows, SHOW_MACRO_DEFINITIONS
         result = SetMacro(variable, value.replace('\\', '/'))
         if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
         if isWindows: value = value.replace('/', '\\')
@@ -2294,7 +2369,7 @@ class PlatformInfo:
     # returns nothing
     # EXITS WIT?H ERROR MESSAGE AND DOES NOT RETURN IF NOT FOUND
     def __findBase__(self):
-        global BasePath
+        global BasePath, SHOW_MACRO_DEFINITIONS
         BasePath = self.platform
         while True:
             # Look for Edk2 in current directory
@@ -2348,7 +2423,7 @@ class PlatformInfo:
     # Determines value for PACKAGES_PATH environment variable
     # returns nothing
     def __getPaths__(self):
-        global Paths
+        global Paths, SHOW_MACRO_DEFINITIONS
         paths = os.environ["PACKAGES_PATH"].replace("\\", "/")
         Paths = paths.split(";")
         result = SetMacro("PACKAGE_PATH", Paths)
@@ -2358,7 +2433,7 @@ class PlatformInfo:
     # returns the chipset file
     # EXITS WIT?H ERROR MESSAGE AND DOES NOT RETURN IF NOT FOUND
     def __getHpPlatformPkg__(self):
-        global Macros
+        global SHOW_MACRO_DEFINITIONS
         hpPlatformPkg = GetMacroValue(self.dscFile, "HP_PLATFORM_PKG")
         if not hpPlatformPkg:
             commonFamily = GetMacroValue(self.dscFile, "COMMON_FAMILY")
@@ -2392,7 +2467,7 @@ class PlatformInfo:
         DSCs[self.dscFile] = DSCParser(self.dscFile)
 
     def __processINFs__(self):
-        global INFs
+        global INFs, SHOW_SKIPPED_INFS
         self.infs = {}
         for name, number, path in INFs:
             file = FindPath(path)
@@ -2412,7 +2487,7 @@ class PlatformInfo:
         self.infs = temp
 
     def __processDECs__(self):
-        global DECs
+        global DECs, SHOW_SKIPPED_DECS
         self.decs = {}
         for name, number, path in DECs:
             file               = FindPath(path)
@@ -2434,8 +2509,7 @@ class PlatformInfo:
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
-        global DebugLevel
-        global ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SHOW_SKIPPED_INFS, SHOW_SKIPPED_DECS, SHOW_SKIPPED_FDFS
+        global ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES
 
         # Parse all of the files
         for name, handler in [('Args', self.__processArgs__), ('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
