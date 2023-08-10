@@ -1026,6 +1026,86 @@ class UEFIParser:
             if type(result) == bool: return False   # In this case the eval worked so an __UNDEFINED__ macro could have existed otherwise eval would have failed
             return '_UNDEFINED__' in result         # Eval must have failed ... was it because of __UNDEFINED__ macro?
 
+    ##################
+    # Public methods #
+    ##################
+
+    # Defines a new macro
+    # line: line containing the macro
+    # returns nothing
+    def DefineMacro(self, macro, value):
+        global SHOW_MACRO_DEFINITIONS
+        try:
+            # See if value can be interpreted
+            value = eval(value)
+        except Exception:
+            value = '"' + value + '"'
+        # Save result
+        if not value: macrovalue = '""'
+        result = SetMacro(macro, value)
+        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{self.lineNumber}:{result}')
+        # Call handler for this macro (if found)
+        handler = getattr(self, f"macro_{macro}", None)
+        if handler and callable(handler): handler(value)
+
+    # Handles error repoting
+    # message: error message
+    # returns nothing
+    def ReportError(self, message):
+        # Display error message with file name and line number where error is encountered to stderr
+        Error(f"{self.fileName}, line: {self.lineNumber}\n              {message}\n")
+
+    # Determine full path to a file
+    # path: partial path of file being searched for
+    # returns full path to file or None if file could not be found
+    def FindFile(self, path):
+        # Make sure there are no undefined macros in the file path'
+        if '_UNDEFINED__' in path:
+            items = path.split("__")
+            self.ReportError(f"Unable to locate file due to undefined macro: {path}")
+            return None
+        # Remove quotes that were added by macro expansion
+        path = path.replace('"', '')
+        file = FindPath(path)
+        if not file: self.ReportError(f"Unable to locate file {path}")
+        return file
+
+    # Include a file
+    # partial: Partial path of file being included
+    # handler: Routine to handle the inclusion
+    # returns full path to file or None if file could not be found
+    def IncludeFile(self, partial, handler):
+        global SHOW_INCLUDE_DIRECTIVE, SHOW_INCLUDE_RETURN, SHOW_CONDITIONAL_SKIPS
+        if self.process:
+            # Get full path to file to be incuded
+            file = self.FindFile(partial)
+            # Make sure full path was found
+            if file:
+               # Include the file!
+                if Debug(SHOW_INCLUDE_DIRECTIVE): print(f"{self.lineNumber}:Including {file}")
+                handler(file)
+                if Debug(SHOW_INCLUDE_RETURN): print(f"{self.lineNumber}:Returning to {self.fileName}")
+            # Note else error handled in self.FindFile!
+        else:
+            if Debug(SHOW_CONDITIONAL_SKIPS): print(f"{self.lineNumber}:SKIPPED - Conditionally")
+
+    # Used to mark entry into a subsection
+    def EnterSubsection(self):
+        global SHOW_SUBSECTION_ENTER
+        # This only needs to happen for first section in sections that are grouped together
+        if self.sections.index(self.section) == 0:
+            # Make sure previous subsection is done
+            if self.inSubsection:
+                self.ReportError('Unable to enter subsection because already in subsection')
+                return
+            self.inSubsection = True
+            if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering subsection')
+
+    ####################
+    # Special handlers #
+    ####################
+    # None
+
     ######################
     # Directive handlers #
     ######################
@@ -1132,79 +1212,13 @@ class UEFIParser:
             print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
 
     ##################
-    # Public methods #
+    # Match handlers #
     ##################
+    # None
 
-    # Defines a new macro
-    # line: line containing the macro
-    # returns nothing
-    def DefineMacro(self, macro, value):
-        global SHOW_MACRO_DEFINITIONS
-        try:
-            # See if value can be interpreted
-            value = eval(value)
-        except Exception:
-            value = '"' + value + '"'
-        # Save result
-        if not value: macrovalue = '""'
-        result = SetMacro(macro, value)
-        if Debug(SHOW_MACRO_DEFINITIONS): print(f'{self.lineNumber}:{result}')
-        # Call handler for this macro (if found)
-        handler = getattr(self, f"macro_{macro}", None)
-        if handler and callable(handler): handler(value)
-
-    # Handles error repoting
-    # message: error message
-    # returns nothing
-    def ReportError(self, message):
-        # Display error message with file name and line number where error is encountered to stderr
-        Error(f"{self.fileName}, line: {self.lineNumber}\n              {message}\n")
-
-    # Determine full path to a file
-    # path: partial path of file being searched for
-    # returns full path to file or None if file could not be found
-    def FindFile(self, path):
-        # Make sure there are no undefined macros in the file path'
-        if '_UNDEFINED__' in path:
-            items = path.split("__")
-            self.ReportError(f"Unable to locate file due to undefined macro: {path}")
-            return None
-        # Remove quotes that were added by macro expansion
-        path = path.replace('"', '')
-        file = FindPath(path)
-        if not file: self.ReportError(f"Unable to locate file {path}")
-        return file
-
-    # Include a file
-    # partial: Partial path of file being included
-    # handler: Routine to handle the inclusion
-    # returns full path to file or None if file could not be found
-    def IncludeFile(self, partial, handler):
-        global SHOW_INCLUDE_DIRECTIVE, SHOW_INCLUDE_RETURN, SHOW_CONDITIONAL_SKIPS
-        if self.process:
-            # Get full path to file to be incuded
-            file = self.FindFile(partial)
-            # Make sure full path was found
-            if file:
-               # Include the file!
-                if Debug(SHOW_INCLUDE_DIRECTIVE): print(f"{self.lineNumber}:Including {file}")
-                handler(file)
-                if Debug(SHOW_INCLUDE_RETURN): print(f"{self.lineNumber}:Returning to {self.fileName}")
-            # Note else error handled in self.FindFile!
-        else:
-            if Debug(SHOW_CONDITIONAL_SKIPS): print(f"{self.lineNumber}:SKIPPED - Conditionally")
-
-    # Used to mark entry into a subsection
-    def EnterSubsection(self):
-        global SHOW_SUBSECTION_ENTER
-        # This only needs to happen for first section in sections that are grouped together
-        if self.sections.index(self.section) == 0:
-            # Make sure previous subsection is done
-            if self.inSubsection:
-                self.ReportError('Unable to enter subsection because already in subsection')
-                return
-            self.inSubsection = True
-            if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering subsection')
+    #################
+    # Dump handlers #
+    #################
 
     # Generic attribute dump method for dumping a list attribute with one field
     # lst:   List attribute to dump
@@ -1250,6 +1264,21 @@ class ArgsParser(UEFIParser):                        #debug,                    
         self.PYTHONSCRIPTS        = []
         # Call constructor for parent class
         super().__init__(fileName, self.BuildArgsSections, True)
+
+    ###################
+    # Private methods #
+    ###################
+    # None
+
+    ##################
+    # Public methods #
+    ##################
+    # None
+
+    ####################
+    # Special handlers #
+    ####################
+    # None
 
     ######################
     # Directive handlers #
@@ -1346,6 +1375,26 @@ class ChipsetParser(UEFIParser):           #debug,                  regularExpre
         self.UPATCHES         = []
         # Call constructor for parent class
         super().__init__(fileName, self.ChipsetSections)
+
+    ###################
+    # Private methods #
+    ###################
+    # None
+
+    ##################
+    # Public methods #
+    ##################
+    # None
+
+    ####################
+    # Special handlers #
+    ####################
+    # None
+
+    ######################
+    # Directive handlers #
+    ######################
+    # None
 
     ####################
     # Section handlers #
@@ -1446,6 +1495,25 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
         # Call constructor for parent class
         super().__init__(fileName, self.DSCSections, True, True, ['error'], sections, process, outside)
 
+    ###################
+    # Private methods #
+    ###################
+    # None
+
+    ##################
+    # Public methods #
+    ##################
+    # None
+
+    ####################
+    # Special handlers #
+    ####################
+
+    def macro_SUPPORTED_ARCHITECTURES(self, value):
+        global SupportedArchitectures, SHOW_SPECIAL_HANDLERS
+        SupportedArchitectures = value.upper().replace('"', '').split("|")
+        if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
+
     ######################
     # Directive handlers #
     ######################
@@ -1453,7 +1521,7 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
     # Handle the Error directive
     # message: Error message
     # returns nothing
-    def directiveError(self, message):
+    def directive_error(self, message):
         global SHOW_ERROR_DIRECT1VE
         # Display error message (if currently processsing)
         if Debug(SHOW_ERROR_DIRECT1VE): print(f"{self.lineNumber}:error {message}")
@@ -1469,15 +1537,6 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
                     if Debug(SHOW_SKIPPED_DSCS): print(f"{self.lineNumber}:Previously loaded:{file}")
             else: DSCs[file] = DSCParser(file, self.sections, self.process)
         self.IncludeFile(includeFile, includeDSCFile)
-
-    ####################
-    # Special handlers #
-    ####################
-
-    def macro_SUPPORTED_ARCHITECTURES(self, value):
-        global SupportedArchitectures, SHOW_SPECIAL_HANDLERS
-        SupportedArchitectures = value.upper().replace('"', '').split("|")
-        if Debug(SHOW_SPECIAL_HANDLERS): print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
 
     ####################
     # Section handlers #
@@ -1624,10 +1683,6 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
         "UNLOAD_IMAGE",  "VERSION_STRING",
     ]
 
-    ###################
-    # Private methods #
-    ###################
-
     # Constructor
     # fileName:         File to parse
     # referenceName:    Name of file referencing the INF
@@ -1651,6 +1706,26 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
         self.reference      = [(referenceName, referenceLine)]  # This attribute is handled in a special case
         # Call constructor for parent class
         super().__init__(fileName, self.INFSections)
+
+    ###################
+    # Private methods #
+    ###################
+    # None
+
+    ##################
+    # Public methods #
+    ##################
+    # None
+
+    ####################
+    # Special handlers #
+    ####################
+    # None
+
+    ######################
+    # Directive handlers #
+    ######################
+    # None
 
     ####################
     # Section handlers #
@@ -1766,10 +1841,6 @@ class DECParser(UEFIParser):                #debug,                regularExpres
                     'headerfiles':           (SHOW_HEADERFILES,    reHeaderFiles,        ("R",            'HEADERFILES',    ['path'],           'matchHeaderFiles')),
     }
 
-    ###################
-    # Private methods #
-    ###################
-
     # Constructor
     # filename: File to parse
     # returns nothing
@@ -1787,6 +1858,26 @@ class DECParser(UEFIParser):                #debug,                regularExpres
         self.HEADERFILES    = []
         # Call constructor for parent class
         super().__init__(fileName, self.DECSections)
+
+    ###################
+    # Private methods #
+    ###################
+    # None
+
+    ##################
+    # Public methods #
+    ##################
+    # None
+
+    ####################
+    # Special handlers #
+    ####################
+    # None
+
+    ######################
+    # Directive handlers #
+    ######################
+    # None
 
     ####################
     # Section handlers #
@@ -1911,10 +2002,6 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         "BlockSize",        "NumBlocks",    "FvAlignment",        "FvNameGuid",        "FvBaseAddress",      "FvForceRebase", 
     ]
 
-    ###################
-    # Private methods #
-    ###################
-
     # Class constructor
     # filename: File to parse
     # returns nothing
@@ -1936,6 +2023,41 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         self.sect     = None    # No section descriptor    is being proecessed
         # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
         super().__init__(fileName, self.FDFSections, True, True)
+
+    ###################
+    # Private methods #
+    ###################
+    # None
+
+    ##################
+    # Public methods #
+    ##################
+    # None
+
+    ####################
+    # Special handlers #
+    ####################
+
+    # For handling lines outside of a section
+    # this: Self object of current file being processed
+    # line: Contents of current line
+    # returns nothing
+    def OutsideLineHandler(self, this, line):
+        global reFile, reSection, reEndBrace, rePath
+        # Save current lineNumber and fileName
+        saved = (self.lineNumber, self.fileName)
+        # Assume lineNumber and fileName object where outside line has been encounteered
+        self.lineNumber, self.fileName = (this.lineNumber, this.fileName)
+        # Process the outside line
+        for i, regEx in enumerate([reFile, reSection, reEndBrace, rePath]): # These are all that are allowed!
+            match = re.match(regEx, line, re.IGNORECASE)
+            if match:
+                [self.matchFile, self.matchSection, self.matchEndDesc, self.matchPath][i](match)
+                break
+        else:
+            self.ReportError('Unsupported line outside of section')
+        # Restore lineNumber and filName
+        self.lineNumber, self.fileName = saved
 
     ######################
     # Directive handlers #
@@ -2300,35 +2422,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                     section = section['type']
                     print (f"            {j}:SECTION {section['type']} {section['value']}{options}")
 
-    ##################
-    # Other handlers #
-    ##################
-
-    # For handling lines outside of a section
-    # this: Self object of current file being processed
-    # line: Contents of current line
-    # returns nothing
-    def OutsideLineHandler(self, this, line):
-        global reFile, reSection, reEndBrace, rePath
-        # Save current lineNumber and fileName
-        saved = (self.lineNumber, self.fileName)
-        # Assume lineNumber and fileName object where outside line has been encounteered
-        self.lineNumber, self.fileName = (this.lineNumber, this.fileName)
-        # Process the outside line
-        for i, regEx in enumerate([reFile, reSection, reEndBrace, rePath]): # These are all that are allowed!
-            match = re.match(regEx, line, re.IGNORECASE)
-            if match:
-                [self.matchFile, self.matchSection, self.matchEndDesc, self.matchPath][i](match)
-                break
-        else:
-            self.ReportError('Unsupported line outside of section')
-        # Restore lineNumber and filName
-        self.lineNumber, self.fileName = saved
-
 class PlatformInfo:
-    ###################
-    # Private methods #
-    ###################
     content = []
 
     # Class constructor
@@ -2356,6 +2450,10 @@ class PlatformInfo:
         self.__getHpPlatformPkg__()
         self.__processPlatform__()
         os.chdir(savedDir)
+
+    ###################
+    # Private methods #
+    ###################
 
     # Set environment variable and also save in Macros
     def __setEnvironment__(self, variable, value):
@@ -2551,6 +2649,11 @@ class PlatformInfo:
                 if item == 'Intel/EagleStreamPlatform/EagleStreamFspPkg/EagleStreamFspPkg.fdf':
                     pass
                 list[item].Dump()
+
+    ##################
+    # Public methods #
+    ##################
+    # None
 
 # Indicate platform to be processed
 #platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
