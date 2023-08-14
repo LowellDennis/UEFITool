@@ -16,7 +16,7 @@ from   random import random
 
 # Content based skips
 SHOW_COMMENT_SKIPS           = 0x8000000000000000    # Show lines being skipped due to being blank or comments
-SHOW_SKIPPED_ARCHITECTURES   = 0x4000000000000000    # Show lines being skipped due to architectural limitation
+SHOW_SKIPPED_SECTIONS        = 0x4000000000000000    # Show lines being skipped due to section limitation
 SHOW_CONDITIONAL_SKIPS       = 0x2000000000000000       # Show lines being skipped due to conditionals
 # File type skips
 SHOW_SKIPPED_DSCS            = 0x0800000000000000    # Show DSC files skipped because they have already been processed
@@ -342,7 +342,7 @@ reDataStart            = r'^DATA\s+=\s+{$'
 
 # Regular expression for matching lines with format "}"
 # Groups None
-reEndBrace             = r'^\}'
+reEndDesc              = r'^\}'
 
 # Regular expression for matching lines with format "FILE type = guid [options]"
 # Groups 1=>type, 2=>quid, 3=optional options
@@ -479,6 +479,9 @@ def GetVpdOptionNames(this, match, line):
     if match.group(4): return ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value']
     return                    ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value']
 
+# Replace all occurances of __<macro>__UNDEFINED__ with $(<macro>) within a string.
+# string: String in which to look for replacements
+# returns string with any appropriate substrings replaced
 def FixUndefined(string):
         # Look for all macros in the line (format "$(<macroName>)")
         matches = re.findall(r'__([a-zA-Z0-9_]+)__UNDEFINED__', string)
@@ -520,15 +523,16 @@ class UEFIParser:
     #
     # NOTES on handlers in child class!
     #    Child class MAY  provide a handler for "section_<name>"    for each name in sectionsInfo.
-    #    "DefaultSection" is used for any section that  does not have a handler in the child class.
+    #    Child class MAY  provide a handler for regular expression  matches (use None if no handler is proviced)
+    #        If specified this handler must be present and will only be called if the appropriate regulare expression matches.
     #    Child class MUST provide a handler for "directive_<name>"  for each name in additionalDirectives.
-    #    If no handler is found an error will be generated.
+    #        If no handler is found an error will be generated.
     #    Child class MUST provide a hanlder for "directive_include" if allowIncludes is se to True.
-    #    If no handler is found an error will be generated.
+    #        If no handler is found an error will be generated.
     #    Child class MAY  provide "onentry_<name>" handler to be called when section "name" is entered.
     #    Child class MAY  provide "onexit_<name>"  handler to be called when section "name" is exited.
     #    Child class MAY  provide "macro_<name>"   handler to be called when macro "name" is set.
-    #    This class provides handlers for all conditional directives.
+    #    This class provides handlers for all conditional directives (except include).
 
     def __init__(self, fileName, sectionsInfo, allowIncludes = False, allowConditionals = False, additionalDirectives = [], sections = [], process = True, outside = None):
         global MacroVer
@@ -622,7 +626,7 @@ class UEFIParser:
     # section: section to check
     # returns True if supported, False otherwise
     def __sectionSupported__(self, section):
-        global SupportedArchitectures, SHOW_SKIPPED_ARCHITECTURES
+        global SupportedArchitectures, SHOW_SKIPPED_SECTIONS
         # Sections that do not stipulate architecture are always supported
         if len(section) < 2:                  return True
         arch = section[1].upper()
@@ -639,7 +643,7 @@ class UEFIParser:
             # Eliminate sections that do not conform to tooling convention
             if not third in self.AllTooling:  return True
             if third == 'EDKII':              return True
-        if Debug(SHOW_SKIPPED_ARCHITECTURES): print(f"{self.lineNumber}:SKIPPED - unsupported section {GetSection(section)}")
+        if Debug(SHOW_SKIPPED_SECTIONS): print(f"{self.lineNumber}:SKIPPED - unsupported section {GetSection(section)}")
         return False
 
     # Looks for and handles section headers
@@ -763,11 +767,14 @@ class UEFIParser:
         regExes = info[1]
         if type(regExes) is list:
             for idx, regEx in enumerate(regExes):
-                match = re.match(regEx, line, re.IGNORECASE)
+                regex = eval(regEx)
+                match = re.match(regex, line, re.IGNORECASE)
                 if match: break
         else:
             idx   = None
-            match = re.match(regExes, line, re.IGNORECASE)
+            regEx = regExes
+            regex = eval(regEx)
+            match = re.match(regex, line, re.IGNORECASE)
         # Get appropriate handler arguments
         args = info[2] if idx == None else info[2][idx]
         # Call the handler
@@ -781,11 +788,9 @@ class UEFIParser:
                 if callable(names): names = names(self, match, line)
                 self.__updateAttribute__(names, items, attribute, info[0])
             # Call the match handler if present and callable
-            handler = None if len(args) < 4  else args[3]
-            if handler:
-                handler = getattr(self, handler, None)
-                if handler and callable:
-                    handler(match)
+            handler = getattr(self, f'match_{regEx}', None)
+            if handler and callable:
+                handler(match)
             # Call the section handler if present and callable
             handler = getattr(self, f"section_{section}", None)
             if handler and callable(handler):
@@ -896,6 +901,8 @@ class UEFIParser:
             self.lineNumber = 0
             for line in content:
                 self.lineNumber += 1
+#                if (self.lineNumber, self.fileName) == (133, 'Intel/EagleStreamPlatform/EagleStreamFspPkg/EagleStreamFspPkg.fdf'):
+#                    pass
                 line = self.__removeComments__(line)
                 if not line: continue
                 # Expand macros before parsing
@@ -1245,13 +1252,21 @@ class UEFIParser:
             handler()
 
 # Class for parsing HPE Build Args files (PlatformPkgBuildArgs.txt)
-class ArgsParser(UEFIParser):                        #debug,                     regularExpression(s),   arguments
-    BuildArgsSections = { 'environmentvariables':    (SHOW_ENVIRONMENTVARIABLES, reEnvironmentVariables, ('R O',    'ENVIRONMENTVARIABLES', ['variable', 'value'],         'matchEnvironmentVariables')),
-                          'hpbuildargs':             (SHOW_HPBUILDARGS,          reHpBuildArgs,          (' R O O', 'HPBUILDARGS',          ['option',   'arg',  'value'], 'matchBuildArgs')),
-                          'pythonbuildfailscripts':  (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
-                          'pythonprebuildscripts':   (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
-                          'pythonprehpbuildscripts': (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
-                          'pythonpostbuildscripts':  (SHOW_PYTHONSCRIPTS,        rePythonScripts,        ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'],  None)),
+class ArgsParser(UEFIParser):
+    # Section Arguments            R/O        List                    Names
+    ArgsEnvironmentVariables    = ('R O',    'ENVIRONMENTVARIABLES', ['variable', 'value'])
+    ArgsHpbuildArgs             = (' R O O', 'HPBUILDARGS',          ['option',   'arg',  'value'])
+    ArgsPythonBuildfailScripts  = ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])
+    ArgsPythonPrebuildScripts   = ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])
+    ArgsPythonPreHpbuildScripts = ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])
+    ArgsPythonPostbuildScripts  = ('RRO',    'PYTHONSCRIPTS',        ['pyfile',   'func', 'args'])
+    #                      Section                    Debug                       regEx(s)                 Arguments
+    BuildArgsSections = { 'environmentvariables':    (SHOW_ENVIRONMENTVARIABLES, 'reEnvironmentVariables', ArgsEnvironmentVariables),
+                          'hpbuildargs':             (SHOW_HPBUILDARGS,          'reHpBuildArgs',          ArgsHpbuildArgs),
+                          'pythonbuildfailscripts':  (SHOW_PYTHONSCRIPTS,        'rePythonScripts',        ArgsPythonBuildfailScripts),
+                          'pythonprebuildscripts':   (SHOW_PYTHONSCRIPTS,        'rePythonScripts',        ArgsPythonPrebuildScripts),
+                          'pythonprehpbuildscripts': (SHOW_PYTHONSCRIPTS,        'rePythonScripts',        ArgsPythonPreHpbuildScripts),
+                          'pythonpostbuildscripts':  (SHOW_PYTHONSCRIPTS,        'rePythonScripts',        ArgsPythonPostbuildScripts),
     }
 
     # Class constructor
@@ -1305,7 +1320,7 @@ class ArgsParser(UEFIParser):                        #debug,                    
     # Handle a match in the [EnvironmentVariables] section
     # match: Results of regex match
     # returns nothing
-    def matchEnvironmentVariables(self, match):
+    def match_reEnvironmentVariables(self, match):
         variable = match.group(1)
         value    = match.group(3) if match.group(3) != None else ''
         self.DefineMacro(variable, value.replace('\\', '/'))
@@ -1314,7 +1329,7 @@ class ArgsParser(UEFIParser):                        #debug,                    
     # Handle a match in the [HpBuildArgs] section
     # match: Results of regex match
     # returns nothing
-    def matchBuildArgs(self, match):
+    def match_reHpBuildArgs(self, match):
         if match.group(2) == '-D':
             macro = match.group(4)
             if not macro:
@@ -1353,13 +1368,21 @@ class ArgsParser(UEFIParser):                        #debug,                    
                 print(f"        {i}:{FixUndefined(item['pyfile'])}:{item['func']}({args})")
 
 # Class for parsing HPE Chipset files (HpChipsetInfo.txt)
-class ChipsetParser(UEFIParser):           #debug,                  regularExpression(s), arguments
-    ChipsetSections = { 'binaries':         (SHOW_BINARIES,         reBinariesEqu,        ('RR',     'BINARIES',         ['binary',  'path'],         None)),
-                        'hpbuildargs':      (SHOW_HPBUILDARGS,      reHpBuildArgs,        (' R O O', 'HPBUILDARGS',      ['option',  'arg', 'value'], 'matchHpBuildArgs')),
-                        'platformpackages': (SHOW_PLATFORMPACKAGES, rePlatformPackages,   ('R',      'PLATFORMPACKAGES', ['package'],                 None)),
-                        'snaps':            (SHOW_SNAPS,            reSnaps,              ('RR',     'SNAPS',            ['version', 'snap'],         None)),
-                        'tagexceptions':    (SHOW_TAGEXCEPTIONS,    reTagExceptions,      ('R',      'TAGEXCEPTIONS',    ['tag'],                     None)),
-                        'upatches':         (SHOW_UPATCHES,         reuPatches,           ('RR',     'UPATCHES',         ['patch',   'name'],         None)),
+class ChipsetParser(UEFIParser):
+    # Section Arguments     R/O        List                Names
+    ArgsBinaries         = ('RR',     'BINARIES',         ['binary',  'path'])
+    ArgsHBbuildArgs      = (' R O O', 'HPBUILDARGS',      ['option',  'arg', 'value'])
+    ArgsPlatformPackages = ('R',      'PLATFORMPACKAGES', ['package'])
+    ArgsSnaps            = ('RR',     'SNAPS',            ['version', 'snap'])
+    ArgsTagExceptions    = ('R',      'TAGEXCEPTIONS',    ['tag'])
+    ArgsuPatches         = ('RR',     'UPATCHES',         ['patch',   'name'])
+    #                    Section             Debug                   regEx(s)             Arguments
+    ChipsetSections = { 'binaries':         (SHOW_BINARIES,         'reBinariesEqu',      ArgsBinaries),
+                        'hpbuildargs':      (SHOW_HPBUILDARGS,      'reHpBuildArgs',      ArgsHBbuildArgs),
+                        'platformpackages': (SHOW_PLATFORMPACKAGES, 'rePlatformPackages', ArgsPlatformPackages),
+                        'snaps':            (SHOW_SNAPS,            'reSnaps',            ArgsSnaps),
+                        'tagexceptions':    (SHOW_TAGEXCEPTIONS,    'reTagExceptions',    ArgsTagExceptions),
+                        'upatches':         (SHOW_UPATCHES,         'reuPatches',         ArgsuPatches),
     }
 
     # Class constructor
@@ -1408,8 +1431,8 @@ class ChipsetParser(UEFIParser):           #debug,                  regularExpre
     # Handle a match in the [HpBuildArgs] section
     # match: Results of regex match
     # returns nothing
-    def matchHpBuildArgs(self, match):
-        ArgsParser.matchBuildArgs(self, match)
+    def match_reHpBuildArgs(self, match):
+        ArgsParser.match_reHpBuildArgs(self, match)
 
     #################
     # Dump handlers #
@@ -1452,29 +1475,46 @@ class ChipsetParser(UEFIParser):           #debug,                  regularExpre
                 print(f"        {i}:{item['patch']} {item['name']}")
 
 # Class for handling UEFI DSC files
-PCDBase =  ['pcdtokenspaceguidname', 'pcdname' ]
-PCDSize =  PCDBase + ['value', 'datumtype', 'maximumdatumsize']
-PCDHii  = PCDBase + ['variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue']
-class DSCParser(UEFIParser):                 #debug,               regularExpression(s),       arguments
-    DSCSections = { 'buildoptions':          (SHOW_BUILDOPTIONS,   reBuildOptions,             (" ORO",         'BUILDOPTIONS',   ['tag', 'option', 'value'],   'matchBuildOptions')),
-                    'components':            (SHOW_COMPONENTS,     reComponents,               ("R",            'COMPONENTS',     ['inf'],                      'matchComponents')),
-                    'defaultstores':         (SHOW_DEFAULTSTORES,  reDefaultStores,            ("R R",          'DEFAULTSTORES',  ['value', 'name'],            None)),
-                    'defines':               (SHOW_DEFINES,        [reDefines, reEdkGlobals],  [("RO",          'DEFINES',        ['macro', 'value'],           'matchDefines'),
-                                                                                                ("ORO",         'DEFINES',        ['macro', 'value'],           'matchEdkGlobals')]),
-                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,           ("R R",          'LIBRARYCLASSES', ['name', 'path'],             'matchLibraryClasses')),
-                    'pcdsdynamic':           (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
-                    'pcdsdynamicdefault':    (SHOW_PCDS,           rePcds,                     ("RR R O X X X", 'PCDS',           PCDSize,                      None)),
-                    'pcdsdynamicex':         (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
-                    'pcdsdynamicexdefault':  (SHOW_PCDS,           rePcds,                     ("RR O O O X X", 'PCDS',           PCDSize,                      None)),
-                    'pcdsdynamicexhii':      (SHOW_PCDS,           rePcds,                     ("RR R R R O O", 'PCDS',           PCDHii + ['hiiattribute'],    None)),
-                    'pcdsdynamicexvpd':      (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           GetVpdOptionNames,            None)),
-                    'pcdsdynamichii':        (SHOW_PCDS,           rePcds,                     ("RR R R R O O", 'PCDS',           PCDHii,                       None)),
-                    'pcdsdynamicvpd':        (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           GetVpdOptionNames,            None)),
-                    'pcdsfeatureflag':       (SHOW_PCDS,           rePcds,                     ("RR O X X X X", 'PCDS',           PCDBase +['value'],           None)),
-                    'pcdsfixedatbuild':      (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
-                    'pcdspatchableinmodule': (SHOW_PCDS,           rePcds,                     ("RR R O O X X", 'PCDS',           PCDSize,                      None)),
-                    'skuids':                (SHOW_SKUIDS,         reSkuIds,                   ("RRO",          'SKUIDS',         ['value', 'skuid', 'parent'], None)),
-                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,           ("R",            'USEREXTENSIONS', ['ext'],                      None)),
+class DSCParser(UEFIParser):
+    # Section Arguments         R/O              List              Names
+    ArgsBuildOptions          = (' ORO',         'BUILDOPTIONS',   ['tag', 'option', 'value'])
+    ArgsComponents            = ('R',            'COMPONENTS',     ['inf'])
+    ArgsDefaultStores         = ('R R',          'DEFAULTSTORES',  ['value', 'name'])
+    ArgsDefines               = [('RO',          'DEFINES',        ['macro', 'value']),     # reDefines
+                                 ('ORO',         'DEFINES',        ['macro', 'value'])]     # reEdkGlobals
+    ArgsLibraryClasses        = ('R R',          'LIBRARYCLASSES', ['name', 'path'])
+    ArgsPcdsDynamic           = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicDefault    = ('RR R O X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicEx         = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicExDefault  = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicExHii      = ('RR R R R O O', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute'])
+    ArgsPcdsDynamicExVpd      = ('RR R O O X X', 'PCDS',           GetVpdOptionNames)
+    ArgsPcdsDynamicHii        = ('RR R R R O O', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue'])
+    ArgsPcdsDynamicVpd        = ('RR R O O X X', 'PCDS',           GetVpdOptionNames)
+    ArgsPcdsFeatureFlag       = ('RR O X X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value'])
+    ArgsPcdsFixedatBuild      = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsPatchableInModule = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsSkuIds                = ('RRO',          'SKUIDS',         ['value', 'skuid', 'parent'])
+    ArgsUserExtensions        = ('R',            'USEREXTENSIONS', ['ext'])
+    #                Section                  Debug                 regEx(s)                      Arguments
+    DSCSections = { 'buildoptions':          (SHOW_BUILDOPTIONS,   'reBuildOptions',              ArgsBuildOptions),
+                    'components':            (SHOW_COMPONENTS,     'reComponents',                ArgsComponents),
+                    'defaultstores':         (SHOW_DEFAULTSTORES,  'reDefaultStores',             ArgsDefaultStores),
+                    'defines':               (SHOW_DEFINES,        ['reDefines', 'reEdkGlobals'], ArgsDefines),
+                    'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',            ArgsLibraryClasses),
+                    'pcdsdynamic':           (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamic),
+                    'pcdsdynamicdefault':    (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicDefault),
+                    'pcdsdynamicex':         (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicEx),
+                    'pcdsdynamicexdefault':  (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicExDefault),
+                    'pcdsdynamicexhii':      (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicExHii),
+                    'pcdsdynamicexvpd':      (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicExVpd),
+                    'pcdsdynamichii':        (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicHii),
+                    'pcdsdynamicvpd':        (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicVpd),
+                    'pcdsfeatureflag':       (SHOW_PCDS,           'rePcds',                      ArgsPcdsFeatureFlag),
+                    'pcdsfixedatbuild':      (SHOW_PCDS,           'rePcds',                      ArgsPcdsFixedatBuild),
+                    'pcdspatchableinmodule': (SHOW_PCDS,           'rePcds',                      ArgsPcdsPatchableInModule),
+                    'skuids':                (SHOW_SKUIDS,         'reSkuIds',                    ArgsSkuIds),
+                    'userextensions':        (SHOW_USEREXTENSIONS, 'reUserExtensions',            ArgsUserExtensions),
     }
 
     # Constructor
@@ -1550,7 +1590,7 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
     # Handle a match in the [BuildOptions] section
     # match: Results of regex match
     # returns nothing
-    def matchBuildOptions(self, match):
+    def match_reBuildOptions(self, match):
         # Look for line continuation character
         if match.group(5):
             self.lineContinuation = True
@@ -1558,7 +1598,7 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
     # Handle a match in the [Components] section
     # match: Results of regex match
     # returns nothing
-    def matchComponents(self, match):
+    def match_reComponents(self, match):
         # Look for subsection entry
         if match.group(3) and match.group(3) == '{':
             self.EnterSubsection()
@@ -1566,21 +1606,21 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
     # Handle a match in the [Defines] section for reDefines
     # match: Results of regex match
     # returns nothing
-    def matchDefines(self, match):
+    def match_reDefines(self, match):
         macro, value = (match.group(1), match.group(2))
         self.DefineMacro(macro, value if value != None else '')
 
     # Handle a match in the [Defines] section for reEdkGlobal
     # match: Results of regex match
     # returns nothing
-    def matchEdkGlobal(self, match):
+    def match_reEdkGlobal(self, match):
         macro, value = (match.group(2), match.group(3))
         self.DefineMacro(macro, value if value != None else '')
 
     # Handle a match in the [libraryclasses] section for reLibraryClasses
     # match: Results of regex match
     # returns nothing
-    def matchLibraryClasses(self, match):
+    def match_reLibraryClasses(self, match):
         global INFs
         INFs.append( (self.fileName, self.lineNumber, match.group(3).replace('"', '')) )
 
@@ -1652,27 +1692,43 @@ class DSCParser(UEFIParser):                 #debug,               regularExpres
         UEFIParser.DumpSingle(self, self.USEREXTENSIONS, 'UserExtensions', 'ext')
 
 # Class for handling UEFI INF files
-class INFParser(UEFIParser):                 #debug,               regularExpression(s), arguments
-    Binaries    = ['kind', 'path', 'tag1', 'tag2', 'tag3', 'tag4']
-    Protocols   = ['protocol', 'not', 'pcdtokenspaceguidname', 'pcdname']
-    Sources     = ['source', 'source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8']
-    INFSections = { 'binaries':              (SHOW_BINARIES,       reBinariesBar,        ("RR O O O O",   'BINARIES',       Binaries,                   None)),
-                    'buildoptions':          (SHOW_BUILDOPTIONS,   reBuildOptions,       (" ORO",         'BUILDOPTIONS',   ['tag', 'option', 'value'], None)),
-                    'defines':               (SHOW_DEFINES,        reDefines,            ("RO",           'DEFINES',        ['macro', 'value'],         None)),
-                    'depex':                 (SHOW_DEPEX,          reDepex,              ("R",            'DEPEX',          ['depex'],                  None)),
-                    'featurepcd':            (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
-                    'fixedpcd':              (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
-                    'guids':                 (SHOW_GUIDS,          reGuids,              ("R X",          'GUIDS',          ['guid'],                   None)),
-                    'includes':              (SHOW_INCLUDES,       reIncludes,           ("R",            'INCLUDES',       ['include'],                None)),
-                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,     ("R O",          'LIBRARYCLASSES', ['name', 'path'],           None)),
-                    'packages':              (SHOW_PACKAGES,       rePackages,           ("R",            'PACKAGES',       ['path'],                   'matchPackages')),
-                    'patchpcd':              (SHOW_PCDS,           rePcds,               ("RR O O X X X", 'PCDS',           PCDSize,                    None)),
-                    'pcd':                   (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
-                    'pcdex':                 (SHOW_PCDS,           rePcds,               ("RR O O O X X", 'PCDS',           PCDSize,                    None)),
-                    'ppis':                  (SHOW_PPIS,           rePpis,               ("R X",          'PPIS',           ['ppi'],                    None)),
-                    'protocols':             (SHOW_PROTOCOLS,      reProtocolsBar,       ("R   OOO",      'PROTOCOLS',      Protocols,                  None)),
-                    'sources':               (SHOW_SOURCES,        reSources,            ("ROOOOOOO",     'SOURCES',        Sources,                    None)),
-                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,     ("R",            'USEREXTENSIONS', ['ext'],                    None)),
+class INFParser(UEFIParser):
+    # Section Arguments    R/O             List              Names
+    Argsbinaries       = ('RR O O O O',   'BINARIES',       ['kind', 'path', 'tag1', 'tag2', 'tag3', 'tag4'])
+    ArgsBuildOptions   = (' ORO',         'BUILDOPTIONS',   ['tag', 'option', 'value'])
+    ArgsDefines        = ('RO',           'DEFINES',        ['macro', 'value'])
+    ArgsDepEx          = ('R',            'DEPEX',          ['depex'])
+    ArgsFeaturePcd     = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsFixedPcd       = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsGuids          = ('R X',          'GUIDS',          ['guid'])
+    ArgsIncludes       = ('R',            'INCLUDES',       ['include'])
+    ArgsLibraryClasses = ('R O',          'LIBRARYCLASSES', ['name', 'path'])
+    ArgsPackages       = ('R',            'PACKAGES',       ['path'])
+    ArgsPatchPcd       = ('RR O O X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcd            = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdEx          = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPpis           = ('R X',          'PPIS',           ['ppi'])
+    ArgsProtocols      = ('R   OOO',      'PROTOCOLS',      ['protocol', 'not', 'pcdtokenspaceguidname', 'pcdname'])
+    ArgsSources        = ('ROOOOOOO',     'SOURCES',        ['source', 'source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8'])
+    ArgsUserExtensions = ('R',            'USEREXTENSIONS', ['ext'])
+    #                Section                  Debug                 regEx(s)               Arguments
+    INFSections = { 'binaries':              (SHOW_BINARIES,       'reBinariesBar',        Argsbinaries),
+                    'buildoptions':          (SHOW_BUILDOPTIONS,   'reBuildOptions',       ArgsBuildOptions),
+                    'defines':               (SHOW_DEFINES,        'reDefines',            ArgsDefines),
+                    'depex':                 (SHOW_DEPEX,          'reDepex',              ArgsDepEx),
+                    'featurepcd':            (SHOW_PCDS,           'rePcds',               ArgsFeaturePcd),
+                    'fixedpcd':              (SHOW_PCDS,           'rePcds',               ArgsFixedPcd),
+                    'guids':                 (SHOW_GUIDS,          'reGuids',              ArgsGuids),
+                    'includes':              (SHOW_INCLUDES,       'reIncludes',           ArgsIncludes),
+                    'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',     ArgsLibraryClasses),
+                    'packages':              (SHOW_PACKAGES,       'rePackages',           ArgsPackages),
+                    'patchpcd':              (SHOW_PCDS,           'rePcds',               ArgsPatchPcd),
+                    'pcd':                   (SHOW_PCDS,           'rePcds',               ArgsPcd),
+                    'pcdex':                 (SHOW_PCDS,           'rePcds',               ArgsPcdEx),
+                    'ppis':                  (SHOW_PPIS,           'rePpis',               ArgsPpis),
+                    'protocols':             (SHOW_PROTOCOLS,      'reProtocolsBar',       ArgsProtocols),
+                    'sources':               (SHOW_SOURCES,        'reSources',            ArgsSources),
+                    'userextensions':        (SHOW_USEREXTENSIONS, 'reUserExtensions',     ArgsUserExtensions),
     }
 
     # Items defined in the [Defines] section of an INF file (because these are all caps they will show up in dump)
@@ -1739,7 +1795,7 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
     # Handle a match in the [Packages] section for rePackages
     # match: Results of regex match
     # returns nothing
-    def matchPackages(self, match):
+    def match_rePackages(self, match):
         global DECs
         DECs.append((self.fileName, self.lineNumber, match.group(1)))
 
@@ -1823,22 +1879,38 @@ class INFParser(UEFIParser):                 #debug,               regularExpres
         DSCParser.DumpUSEREXTENSIONS(self)
 
 # Class for handling UEFI DEC files
-class DECParser(UEFIParser):                #debug,                regularExpression(s), arguments
-    DECSections = { 'defines':               (SHOW_DEFINES,        reDefines,            ("RO",           'DEFINES',        ['macro', 'value'], 'matchDefines')),
-                    'guids':                 (SHOW_GUIDS,          reGuids,              ("R R",          'GUIDS',          ['guid'],           None)),
-                    'includes':              (SHOW_INCLUDES,       reIncludes,           ("R",            'INCLUDES',       ['include'],        None)),
-                    'libraryclasses':        (SHOW_LIBRARYCLASSES, reLibraryClasses,     ("R R",          'LIBRARYCLASSES', ['name', 'path'],   None)),
-                    'pcdsdynamic':           (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
-                    'pcdsdynamicex':         (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
-                    'pcdsfeatureflag':       (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
-                    'pcdsfixedatbuild':      (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
-                    'pcdspatchableinmodule': (SHOW_PCDS,           rePcds,               ("RR R O O X X", 'PCDS',           PCDSize,            'matchPcds')),
-                    'ppis':                  (SHOW_PPIS,           rePpis,               ("R R",          'PPIS',           ['ppi'],            None)),
-                    'protocols':             (SHOW_PROTOCOLS,      reProtocolsEqu,       ("R R",          'PROTOCOLS',      ['protocol'],       None)),
-                    'userextensions':        (SHOW_USEREXTENSIONS, reUserExtensions,     ("R",            'USEREXTENSIONS', ['ext'],            None)),
+class DECParser(UEFIParser):
+    # Section Arguments          R/O             List              Names
+    ArgsDefines               = ('RO',           'DEFINES',        ['macro', 'value'])
+    ArgsGuids                 = ('R R',          'GUIDS',          ['guid'])
+    ArgsIncludes              = ('R',            'INCLUDES',       ['include'])
+    ArgsLibraryClasses        = ('R R',          'LIBRARYCLASSES', ['name', 'path'])
+    ArgsPcdsDynamic           = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicEx         = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsFeatureFlag       = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsFixedatBuild      = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsPatchableInModule = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPpis                  = ('R R',          'PPIS',           ['ppi'])
+    ArgsProtocols             = ('R R',          'PROTOCOLS',      ['protocol'])
+    ArgsUserExtensions        = ('R',            'USEREXTENSIONS', ['ext'])
+    ArgsPackages              = ('R',            'PACKAGES',       ['path'])
+    ArgsHeaderFiles           = ('R',            'HEADERFILES',    ['path'])
+    #                Section                  Debug                 regEx(s)               Arguments
+    DECSections = { 'defines':               (SHOW_DEFINES,        'reDefines',            ArgsDefines),
+                    'guids':                 (SHOW_GUIDS,          'reGuids',              ArgsGuids),
+                    'includes':              (SHOW_INCLUDES,       'reIncludes',           ArgsIncludes),
+                    'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',     ArgsLibraryClasses),
+                    'pcdsdynamic':           (SHOW_PCDS,           'rePcds',               ArgsPcdsDynamic),
+                    'pcdsdynamicex':         (SHOW_PCDS,           'rePcds',               ArgsPcdsDynamicEx),
+                    'pcdsfeatureflag':       (SHOW_PCDS,           'rePcds',               ArgsPcdsFeatureFlag),
+                    'pcdsfixedatbuild':      (SHOW_PCDS,           'rePcds',               ArgsPcdsFixedatBuild),
+                    'pcdspatchableinmodule': (SHOW_PCDS,           'rePcds',               ArgsPcdsPatchableInModule),
+                    'ppis':                  (SHOW_PPIS,           'rePpis',               ArgsPpis),
+                    'protocols':             (SHOW_PROTOCOLS,      'reProtocolsEqu',       ArgsProtocols),
+                    'userextensions':        (SHOW_USEREXTENSIONS, 'reUserExtensions',     ArgsUserExtensions),
                     # Below are specail section handlers that can only occur when processing a subsection!
-                    'packages':              (SHOW_PACKAGES,       rePackages,           ("R",            'PACKAGES',       ['path'],           'matchPackages')),
-                    'headerfiles':           (SHOW_HEADERFILES,    reHeaderFiles,        ("R",            'HEADERFILES',    ['path'],           'matchHeaderFiles')),
+                    'packages':              (SHOW_PACKAGES,       'rePackages',           ArgsPackages),
+                    'headerfiles':           (SHOW_HEADERFILES,    'reHeaderFiles',        ArgsHeaderFiles),
     }
 
     # Constructor
@@ -1891,13 +1963,13 @@ class DECParser(UEFIParser):                #debug,                regularExpres
     # Handle a match in the [Defines] section for reDefines
     # match: Results of regex match
     # returns nothing
-    def matchDefines(self, match):
-        DSCParser.matchDefines(self, match)
+    def match_reDefines(self, match):
+        DSCParser.match_reDefines(self, match)
 
     # Handle a match in any of the PCD sections for rePcd
     # match: Results of regex match
     # returns nothing
-    def matchPcds(self, match):
+    def match_rePcds(self, match):
         # See if we need to enter subsection
         if match.group(13) and match.group(13) == '{':
             self.EnterSubsection()
@@ -1971,28 +2043,36 @@ class DECParser(UEFIParser):                #debug,                regularExpres
 
 # Class for handling UEFI FDF files
 class FDFParser(UEFIParser):   #debug,        regularExpression(s),                    handlerArguments
-    FdRegExes   = [reDataStart, reDataAdd, reEndBrace, reDefine, reDefines, reSet, reOfsSz]
-    FvRegExes   = [reDefine, reSet, reDefines, reApriori, reInf, reFile, reSection, reEndBrace, rePath]
-    FDFSections = { 'capsule': (SHOW_CAPSULE, [reSet, reCapsule],                      [(" RR",         'CAPSULES',  ['token', 'value'], None),             # reSet
-                                                                                        ("RR",          'CAPSULES',  ['token', 'value'], None)]),           # reCapsule
-                    'defines': (SHOW_FD,      reDefines,                                ("RO",          'DEFINES',   ['macro', 'value'], None)),
-                    'fd':      (SHOW_FD,      FdRegExes,                               [("",            None,        None,               'matchDataStart'), # reDataStart
-                                                                                        ("R",           None,        None,               'matchDataAdd'),   # reDataAdd
-                                                                                        ("",            None,        None,               'matchDataEnd'),   # reEndBrace (for reDataStart)
-                                                                                        (" RR",         'FDS',       ['token', 'value'], None),             # reDefine
-                                                                                        ("RR",          'FDS',       ['token', 'value'], None),             # reDefines
-                                                                                        (" RR",         'FDS',       ['token', 'value'], None),             # reSet
-                                                                                        ("R R",         'FDS',       ['offset', 'size'], None)]),           # reOfsSz
-                    'fv':      (SHOW_FV,      FvRegExes,                               [(" RR",         'DEFINES',   ['macro', 'value'], None),             # reDefine
-                                                                                        (" RR",         'FVS',       ['token', 'value'], None),             # reSet
-                                                                                        ("RR",          'FVS',       ['token', 'value'], 'matchDefines'),   # reDefines
-                                                                                        ("R",           None,        None,               'matchApriori'),   # reApriori
-                                                                                        ("O  R",        None,        None,               'matchInf'),       # reInf
-                                                                                        ("RRO",         None,        None,               'matchFile'),      # reFile
-                                                                                        ("R",           None,        None,               'matchSection'),   # reSection
-                                                                                        ("",            None,        None,               'matchEndDesc'),   # reEndBrace (for reApriori, reFile, and some reSection)
-                                                                                        ("R",            None,        None,              'matchPath')]),    # rePath
-                    'rule':    (SHOW_RULE,    reRule,                                   ("R",           'RULES',     ['rule'],           None)),
+    # regExLists
+    FdRegExes   = ['reDataStart', 'reDataAdd', 'reEndDesc', 'reDefine', 'reDefines', 'reSet', 'reOfsSz']
+    FvRegExes   = ['reDefine', 'reSet', 'reDefines', 'reApriori', 'reInf', 'reFile', 'reSection', 'reEndDesc', 'rePath']
+    # Sect Args     R/O       List        Names
+    ArgsCapsule = [(' RR',   'CAPSULES', ['token', 'value']),   # reSet
+                   ('RR',    'CAPSULES', ['token', 'value'])]   # reCapsule
+    ArgsDefines = ('RO',     'DEFINES',  ['macro', 'value'])
+    ArgsFd      = [('',      None,       None),                 # reDataStart
+                   ('R',     None,       None,),                # reDataAdd
+                   ('',      None,       None,),                # reEndDesc (for reDataStart)
+                   (' RR',   'FDS',      ['token', 'value']),   # reDefine
+                   ('RR',    'FDS',      ['token', 'value']),   # reDefines
+                   (' RR',   'FDS',      ['token', 'value']),   # reSet
+                   ('R R',   'FDS',      ['offset', 'size'])]   # reOfsSz
+    ArgsFv      = [(' RR',   'DEFINES',  ['macro', 'value']),   # reDefine
+                   (' RR',   'FVS',      ['token', 'value']),   # reSet
+                   ('RR',    'FVS',      ['token', 'value']),   # reDefines
+                   ('R',     None,       None),                 # reApriori
+                   ('O  R',  None,       None),                 # reInf
+                   ('RRO',   None,       None),                 # reFile
+                   ('R',     None,       None),                 # reSection
+                   ('',      None,       None),                 # reEndDesc (for reApriori, reFile, and some reSection)
+                   ('R',     None,       None)]                # rePath
+    ArgsRule    = ('R',     'RULES',    ['rule'],          )
+    #                Section    Debug          regEx(s)               Arguments
+    FDFSections = { 'capsule': (SHOW_CAPSULE, ['reSet', 'reCapsule'], ArgsCapsule),
+                    'defines': (SHOW_FD,      'reDefines',            ArgsDefines),
+                    'fd':      (SHOW_FD,      FdRegExes,              ArgsFd),
+                    'fv':      (SHOW_FV,      FvRegExes,              ArgsFv),
+                    'rule':    (SHOW_RULE,    'reRule',               ArgsRule),
     }
 
     # Items defiend in FV sections of an FDF file
@@ -2043,16 +2123,16 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # line: Contents of current line
     # returns nothing
     def OutsideLineHandler(self, this, line):
-        global reFile, reSection, reEndBrace, rePath
+        global reFile, reSection, reEndDesc, rePath
         # Save current lineNumber and fileName
         saved = (self.lineNumber, self.fileName)
         # Assume lineNumber and fileName object where outside line has been encounteered
         self.lineNumber, self.fileName = (this.lineNumber, this.fileName)
         # Process the outside line
-        for i, regEx in enumerate([reFile, reSection, reEndBrace, rePath]): # These are all that are allowed!
+        for i, regEx in enumerate([reFile, reSection, reEndDesc, rePath]): # These are all that are allowed!
             match = re.match(regEx, line, re.IGNORECASE)
             if match:
-                [self.matchFile, self.matchSection, self.matchEndDesc, self.matchPath][i](match)
+                [self.match_reFile, self.match_reSection, self.match_reEndDesc, self.match_rePath][i](match)
                 break
         else:
             self.ReportError('Unsupported line outside of section')
@@ -2091,7 +2171,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # Handle a match in the [FD] section that matchs reDataStart
     # match: Results of regex match
     # returns nothing
-    def matchDataStart(self, match):
+    def match_reDataStart(self, match):
         global SHOW_FD
         self.data = []
         if Debug(SHOW_FD): print(f'{self.lineNumber}:Entering data list')
@@ -2099,33 +2179,24 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # Handle a match in the [FD] section that matchs reDataAdd
     # match: Results of regex match
     # returns nothing
-    def matchDataAdd(self, match):
+    def match_reDataAdd(self, match):
         global SHOW_FD
         data = match.group(0).replace(',', '').split()
         for datum in data:
             self.data.append(datum)
         if Debug(SHOW_FD): print(f'{self.lineNumber}:{match.group(0)}')
 
-    # Handle a match in the [FD] section that matchs reEndBrace
-    # match: Results of regex match
-    # returns nothing
-    def matchDataEnd(self, match):
-        global SHOW_FD
-        self.FDS.append(self.data)
-        self.data = None
-        if Debug(SHOW_FD): print(f'{self.lineNumber}:Exiting data list')
-
     # Handle a match in the [fv] section that matches reDefines
     # match: Results of regex match
     # returns nothing
-    def matchDefines(self, match):
+    def match_reDefines(self, match):
         #TBD look for BLOCKS
         pass
 
     # Handle a match in the [fv] section that matches reApriori
     # match: Results of regex match
     # returns nothing
-    def matchApriori(self, match):
+    def match_reApriori(self, match):
         global SHOW_FV
         # Get APRIORI type
         self.apriori = match.group(1)
@@ -2136,7 +2207,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # Handle a match in the [fv] section that matches reInf
     # match: Results of regex match
     # returns nothing
-    def matchInf(self, match):
+    def match_reInf(self, match):
         global SHOW_FV
         # Check for Apriori
         inf = match.group(4)
@@ -2164,7 +2235,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # Handle a match in the [fv] section that matches reFile
     # match: Results of regex match
     # returns nothing
-    def matchFile(self, match):
+    def match_reFile(self, match):
         global SHOW_FV, SHOW_SUBSECTION_ENTER
         global Files
         def HandleOptionValue(token, msg):
@@ -2239,7 +2310,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # Handle a match in the [fv] section that matches reSection
     # match: Results of regex match
     # returns nothing
-    def matchSection(self, match):
+    def match_reSection(self, match):
         global SHOW_FV, SHOW_SUBSECTION_ENTER
         if Debug(SHOW_FV): msg = ''
         if self.file == None:
@@ -2288,10 +2359,10 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         if Debug(SHOW_FV): print(f'{self.lineNumber}:SECTION {kind} {value} {msg}')
         if Debug(SHOW_SUBSECTION_ENTER) and kind == 'GUIDED': print(f'{self.lineNumber}:Entering guided section')
 
-    # Handle a match in the [fv] section that matches reEndBrace
+    # Handle a match in the [fv] or [fd] sections that matches reEndDesc
     # match: Results of regex match
     # returns nothing
-    def matchEndDesc(self, match):
+    def match_reEndDesc(self, match):
         # End apriori list (if applicable)
         if self.apriori != None:
             # Clear Apriori list
@@ -2323,13 +2394,17 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
             self.FILES.append(self.file)
             self.file = None
             if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
+        elif self.data != None:
+            self.FDS.append(self.data)
+            self.data = None
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting data list')
         else:
             self.ReportError('End brace found without matching start brace')
 
     # Handle a match in the [fv] section that matches rePath
     # match: Results of regex match
     # returns nothing
-    def matchPath(self, match):
+    def match_rePath(self, match):
         global SHOW_FV
         # Can only have this when a file is being described and when one of the other descriptors is active
         if self.file == None or (self.compress != None or self.guided != None or self.sect != None):
@@ -2573,7 +2648,7 @@ class PlatformInfo:
                 Error(f"{name}:{number}-Unable to locate file {path}\n")
                 continue
             if file in self.infs:
-                if Debug(SHOW_SKIPPED_INFS): print(f"{number}:{name}:Previously loaded:{file}")
+                if Debug(SHOW_SKIPPED_INFS): print(f"{file} already processed")
                 inf = self.infs[file]
                 # Only add reference if it is not already there
                 if not (name, number) in inf.reference:
@@ -2593,7 +2668,7 @@ class PlatformInfo:
                 Error(f"{name}: {number}-Unable to locate file {path}\n")
                 continue
             if file in self.decs:
-                if Debug(SHOW_SKIPPED_DECS): print(f"{number}:{name}:Previously loaded:{file}")
+                if Debug(SHOW_SKIPPED_DECS): print(f"{file} already processed")
             else:
                 self.decs[file] = DECParser(file)
         temp = DECs
