@@ -7,7 +7,7 @@ import re
 import sys
 from   random import random
 
-# Local modules
+# Local modulesre
 # None
 
 ###################
@@ -332,9 +332,14 @@ reCapsule              = r'^' + reFirmEquate
 # reDefines same as above
 
 # Regular expression for matching lines with format "0x??, 0x?? ..."
-# Groups 1=>optional options, 2=>inf
+# Groups 1=>multiple data entries follwoed by ',', 2=>optional data entry not followed by ','
+# Must process group(0).replace(',', ' ').split() to get to individual data entries
 reHexNumber            = r'0x[0-9A-F][0-9A-F]?'
 reDataAdd              = r'^((' + reHexNumber + r'\s*,\s*)+(' + reHexNumber + ')?)$'
+
+# Regular expression for matching lines with format "COMPRESS [type] {"
+# Groups 1=>optional type, 2=>{
+reCompress             = r'^COMPRESS\s+([^\s\{]+)?\s*\{$'
 
 # Regular expression for matching lines with format "DATA = {"
 # Groups 1=>optional options, 2=>inf
@@ -344,10 +349,19 @@ reDataStart            = r'^DATA\s+=\s+{$'
 # Groups None
 reEndDesc              = r'^\}'
 
+# Regular expression for matching lines with format "kind [kind2] [options] path.ext"
+# Groups 3=>path, 4=>ext
+# Note: Must process group[0:-len(group(3))+len(group(4)].split() to get kind, kind2, and options
+reExt                  = r'^(([^\s]+)\s+)*([^\.]+)\.(.+)$'
+
 # Regular expression for matching lines with format "FILE type = guid [options]"
 # Groups 1=>type, 2=>quid, 3=optional options
-#reFile                 = r'^FILE\s+([^=\s]+)\s*=\s*([^\s\{]+)\s*([^\s\{]+)*\s*\{'
+# Must process groups(3).split() to look for individial options
 reFile                 = r'^FILE\s*([^=\s]+)\s*=\s*([^\s\{]+)\s*([^\{]+)?\{$'
+
+# Regular expression for matching lines with format "GUIDED [guid] {"
+# Groups 1=>optional guid, 2=>{
+reGuided              = r'^GUIDED\s+([^\s\{]+)?\s*\{$'
 
 # Regular expression for matching lines with format "INF [options] inf"
 # Groups 1=>optional options, 2=>inf
@@ -357,9 +371,13 @@ reInf                  = r'^INF\s+(([^\s=]+)\s*=\s*(\"[^\"]+\"|[^\s]+)\s+)*' + r
 # Groups 1=>offset, 2=>size
 reOfsSz                = r'^' + re1Bar
 
-# Regular expression for matching lines with format "value = name"
-# Groups 1=>value, 2=>name
-reRule                 = r'^' + reToEOL
+# Regular expression for matching lines with format "path"
+# Groups 1=>path, 2=>options descriptor continuaton character, {
+rePath                = r'^([^\{]+)(\{)?$'
+
+# Regular expression for matching lines with format "FILE kind = guid [{]]"
+# Groups 1=>kind, 2=>guid, 3=>optional options, 4=>optional {
+reRule                 = r'^FILE ([^\s=]+)\s*=\s*([^\s\{]+)\s*([^\{]+)({)$'
 
 # Regular expression for matching lines with format FILE type = guid [CHECKSUM]"
 # Groups 1=>type, 2=>quid, 3=optional CHECKSUM
@@ -369,9 +387,9 @@ reSection              = r'^SECTION\s+([^\{]+)(\{)?$'
 # Groups 1=>set, 2=>pcd, 2=>value
 reSet                 = r'^(set)\s+' + reFirmEquate
 
-# Regular expression for matching lines with format "path"
-# Groups 1=>path, 2=>options descriptor continuaton character, {
-rePath                = r'^([^\{]+)(\{)?$'
+# Regular expression for matching lines with format "VERSION|UI [options]"
+# Groups 1=>VERSION or UI, 2=>optional options
+reVer                 = r'(VERSION|UI)\s+(.+)$'
 
 # Global Variables
 BasePath                = None
@@ -2046,6 +2064,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # regExLists
     FdRegExes   = ['reDataStart', 'reDataAdd', 'reEndDesc', 'reDefine', 'reDefines', 'reSet', 'reOfsSz']
     FvRegExes   = ['reDefine', 'reSet', 'reDefines', 'reApriori', 'reInf', 'reFile', 'reSection', 'reEndDesc', 'rePath']
+    RuleRegExes = ['reRule', 'reExt', 'reVer', 'reCompress', 'reGuided', 'reEndDesc']
     # Sect Args     R/O       List        Names
     ArgsCapsule = [(' RR',   'CAPSULES', ['token', 'value']),   # reSet
                    ('RR',    'CAPSULES', ['token', 'value'])]   # reCapsule
@@ -2065,14 +2084,19 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                    ('RRO',   None,       None),                 # reFile
                    ('R',     None,       None),                 # reSection
                    ('',      None,       None),                 # reEndDesc (for reApriori, reFile, and some reSection)
-                   ('R',     None,       None)]                # rePath
-    ArgsRule    = ('R',     'RULES',    ['rule'],          )
+                   ('R',     None,       None)]                 # rePath
+    ArgsRule    = [('RR',    None,       None),                 # reRule
+                   ('  RR',  None,       None),                 # reExt
+                   ('RR',    None,       None),                 # reVer
+                   ('O',     None,       None),                 # reCompress
+                   ('O',     None,       None),                 # reGuided
+                   ('',      None,       None)]                 # reEndDesc
     #                Section    Debug          regEx(s)               Arguments
     FDFSections = { 'capsule': (SHOW_CAPSULE, ['reSet', 'reCapsule'], ArgsCapsule),
                     'defines': (SHOW_FD,      'reDefines',            ArgsDefines),
                     'fd':      (SHOW_FD,      FdRegExes,              ArgsFd),
                     'fv':      (SHOW_FV,      FvRegExes,              ArgsFv),
-                    'rule':    (SHOW_RULE,    'reRule',               ArgsRule),
+                    'rule':    (SHOW_RULE,    RuleRegExes,            ArgsRule),
     }
 
     # Items defiend in FV sections of an FDF file
@@ -2107,7 +2131,62 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     ###################
     # Private methods #
     ###################
-    # None
+
+    # Parse an option string into a set of options
+    # optionStr:    String to be parsed
+    # allowSingles: Allow options without = following them
+    # returns array of options and their values
+    # Note: single options are returned with a value of True 
+    def __getOptions__(self, optionStr, allowSingles=False):
+        # Set starting conditionns
+        options = []
+        if optionStr != None:
+            expect = 'option'
+            # Loop through the options
+            for token in optionStr.replace('=', ' = ').split():
+                # Is an option name expected?
+                if expect == 'option':
+                    # Save it!
+                    option = token
+                    # An = is now expected
+                    expect = '='
+                # Is an = expected?
+                elif expect == '=':
+                    # Is it an equal
+                    if token != '=':
+                        # Are singles allowed
+                        if allowSingles:
+                            # Add single option
+                            options.append({'option': option, 'value': True})
+                            # Note this must now be the name of the next option
+                            option = token
+                        else:
+                            self.ReportError(f'Invalid option combination encountered: {optionStr}')
+                            return []
+                    else:
+                        expect = 'value'
+                # Must be the value
+                else:
+                    options.append({'option': option, 'value': token})
+                    expect = 'option'
+            # Take care of options that were not completed
+            if not expect == 'option':
+                if expect == '=' and allowSingles:
+                    options.append({'option': option, 'value': True})
+                else:
+                    self.ReportError(f'Masing value for option: {option}')
+                    return []
+        return options
+
+    # Convert option list into a string
+    # options:  Option list
+    # returns string of options concatenated together
+    def __optionStr__(self, options):
+        # Set starting conditionns
+        optionStr = ''
+        for option in options:
+            optionStr += f" {option['option']}={option['value']}"
+        return optionStr
 
     ##################
     # Public methods #
@@ -2173,6 +2252,10 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # returns nothing
     def match_reDataStart(self, match):
         global SHOW_FD
+        # Previous data list must have been completed
+        if not self.data == None:
+            self.ReportError('Previous data list not terminated')
+            return
         self.data = []
         if Debug(SHOW_FD): print(f'{self.lineNumber}:Entering data list')
 
@@ -2181,6 +2264,10 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # returns nothing
     def match_reDataAdd(self, match):
         global SHOW_FD
+        # reDataStart must have been already encountered
+        if self.data == None:
+            self.ReportError('Data list not allowed here')
+            return
         data = match.group(0).replace(',', '').split()
         for datum in data:
             self.data.append(datum)
@@ -2198,39 +2285,114 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # returns nothing
     def match_reApriori(self, match):
         global SHOW_FV
+        # Previous apriori list must have been completed
+        if not self.apriori == None:
+            self.ReportError('Previous apriori list not terminated')
+            return
         # Get APRIORI type
         self.apriori = match.group(1)
         # Start apriori list
         self.APRIORI[self.apriori] = []
         if Debug(SHOW_FV): print(f'{self.lineNumber}:Entering {self.apriori} apriori list')
 
-    # Handle a match in the [fv] section that matches reInf
+    # Handle a match in the [rule] section that matches reCompress
     # match: Results of regex match
     # returns nothing
-    def match_reInf(self, match):
+    def match_reCompress(self, match):
         global SHOW_FV
-        # Check for Apriori
-        inf = match.group(4)
-        if self.apriori:
-            self.APRIORI[self.apriori].append(inf)
-            if Debug(SHOW_FV): print(f'{self.lineNumber}:{inf} added to {self.apriori} list (#{len(self.APRIORI[self.apriori])})')
-        # Normal INF entry
+        # Previous compressed descriptor list must have been completed
+        if not self.compress == None:
+            self.ReportError('Previous compressed descriptor not terminated')
+            return
+        self.compress = { 'type': match.group(1)}
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:COMPRESS {"" if match.group(1) == None else match.group(1)}')
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:Entering compressed descriptor')
+
+    # Handle a match in the [fv] or [fd] sections that matches reEndDesc
+    # match: Results of regex match
+    # returns nothing
+    def match_reEndDesc(self, match):
+        # End apriori list (if applicable)
+        if self.apriori != None:
+            # Clear Apriori list
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
+            self.apriori = None
+        # End guided descriptor (if applicable)
+        elif self.guided != None:
+            # Add guided descriptor to appropriate item
+            if self.compress != None:
+                self.compress['guided'] = self.guided
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compress descriptor')
+            elif self.sect != None:
+                self.sect['guided']  = self.guided
+                self.file['sections'].append(self.sect)
+                self.sect            = None
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided section')
+            elif self.file:
+                self.file['guided']     = self.guided
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
+            elif self.rule:
+                self.rule['guided'] = self.guided
+                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
+            else:
+                self.ReportError('Unmatched ending brace characrter encountered: }')
+            # Clear guided descriptor
+            self.guided = None
+        # End file descriptor (if applicable)
+        elif self.file != None:
+            # Add file
+            self.FILES.append(self.file)
+            self.file = None
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
+        # End data list (if applicable)
+        elif self.data != None:
+            self.FDS.append(self.data)
+            self.data = None
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting data list')
+        # End compressed descriptor (if applicable)
+        elif self.compress != None:
+            self.rule['compress'] = self.compress
+            self.compress = None
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compressed descriptor')
+        # End rule descriptor (if applicable)
+        elif self.rule != None:
+            self.RULES.append(self.rule)
+            self.rule = None
+            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting rule descriptor')
         else:
-            if Debug(SHOW_FV): msg = ''
-            # Add any detected options
-            opts = []
-            if match.group(1):
-                items = match.group(1).rstrip().split('=')
-                if len(items) % 2 != 0:
-                    self.ReportError('Unbalanced INF options encountered')
-                    return
-                for i in range(0, len(items), 2):
-                    opt = items[i].rstrip()
-                    val = items[i + 1].lstrip()
-                    opts.append((opt, val))
-                    if Debug(SHOW_FV): msg += f'{opt}={val} '
-            self.INFS.append((inf, opts))
-            if Debug(SHOW_FV): print(f'{self.lineNumber}:INF {inf} {msg}')
+            self.ReportError('End brace found without matching start brace')
+
+    # Handle a match in the [rules] section that matches reExt
+    # match: Results of regex match
+    # returns nothing
+    def match_reExt(self, match):
+        global SHOW_RULE
+        # reRule must have been previously encountered
+        if self.rule == None:
+            self.ReportError('RULE must start with FILE description')
+            return
+        path, ext = (match.group(3), match.group(4))
+        info      = match.group(0)[0:match.span(3)[0]].split()
+        kind      = info[0]
+        num       = len(info)
+        if num > 2:
+            kind2, opts = (info[1], self.__getOptions__(' '.join(info[2:]), True))
+        elif num == 2:
+            if '=' in info[1] or info[1].lower() == 'optional':
+                kind2, opts = ('', self.__getOptions(info[1], True))
+            else:
+                kind2, opts = (info[1], [])
+        else:
+            kind2, opts = ('', [])
+        if self.guided:
+            self.guided[kind] = f'{kind2}:{path}.{ext}{self.__optionStr__(opts)}'
+            if Debug(SHOW_RULE): print(f'{self.guided[kind]}')
+        elif self.compress:
+            self.compress[kind] = f'{kind2}:{path}.{ext}{self.__optionStr__(opts)}'
+            if Debug(SHOW_RULE): print(f'{self.compress[kind]}')
+        else:
+            self.rule[kind] = f'{kind2}:{path}.{ext}{self.__optionStr__(opts)}'
+            if Debug(SHOW_RULE): print(f'{self.rule[kind]}')
 
     # Handle a match in the [fv] section that matches reFile
     # match: Results of regex match
@@ -2247,65 +2409,78 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
             if Debug(SHOW_FV): msg += f" {token}={value}"
             # Nothing else is expected now
             return (msg, None)
+        # Previous file descriptor must have been completes
+        if not self.file == None:
+            self.ReportError('Previous file descriptor not terminated')
+            return
         msg = ''
         kind = match.group(1)
         guid = match.group(2)
-        self.file = {'type': kind, 'guid': guid, 'options': [], 'sections': []}
-        options   = match.group(3)
-        if options:
-            expect = None
-            for token in options.split():
-                # Is something expected
-                if expect:
-                    # Is an equal expected?
-                    if expect == '=':
-                        # Was an equal found?
-                        if token == '=':
-                            # Now the value is expected
-                            expect = 'value'
-                            continue
-                        # Handle case where equal attached to value
-                        elif token.startswith('='):
-                            msg, expect = HandleOptionValue(token[1:], msg)
-                            continue
-                        else:
-                            self.ReportError('Option {option} missing value')
-                            return
-                    # Must be the value that is expected
-                    else:
-                        msg, expect = HandleOptionValue(token, msg)
-                        continue     
-                # See if we have a specail case   
-                option =  token.upper()
-                if option in ['CHECKSUM', 'FIXED']:
-                    # Save special option and implied value
-                    self.file['options'].append({'option': option, 'value': 'TRUE'})
-                    if Debug(SHOW_FV): msg += f" {option}=TRUE"
-                else:
-                    # Better have ALIGNEMENT in it
-                    if not option.startswith('ALIGNMENT'):
-                        self.ReportError('Unsupported FILE option encounteres: {opt}')
-                        return
-                    # Take care of case where option and value are not seprated by spaces
-                    if '=' in option:
-                        option = option.replace('=', ' ')
-                        items = option.split()
-                        option = items[0].upper()
-                        if len(items) > 1:
-                            # Save the option and value
-                            value = items[1].strip()
-                            self.file['options'].append({'option': option, 'value': value})
-                            if Debug(SHOW_FV): msg += f" {option}={value}"
-                        else:
-                            # = was attached so the value is expected
-                            self.file['options'].append(option)   # Save option for later
-                            expect = 'value'
-                    else:
-                        # = was not attach so the = is expected
-                        self.file['options'].append(token)        # Save option for later
-                        expect = '='
+        self.file = {'type': kind, 'guid': guid, 'options': self.__getOptions__(match.group(3), True), 'sections': []}
         if Debug(SHOW_FV): print(f'{self.lineNumber}:FILE {kind} {guid}{msg}')
         if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering file descriptor')
+
+    # Handle a match in the [rules] section that matches reGuided
+    # match: Results of regex match
+    # returns nothing
+    def match_reGuided(self, match):
+        global SHOW_FV
+        # Previous guidede descriptor list must have been completed
+        if not self.guided == None:
+            self.ReportError('Previous guided descriptor not terminated')
+            return
+        self.guided = { 'guid': match.group(1)}
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:GUIDED {"" if match.group(1) == None else match.group(1)}')
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:Entering guided descriptor')
+
+    # Handle a match in the [fv] section that matches reInf
+    # match: Results of regex match
+    # returns nothing
+    def match_reInf(self, match):
+        global SHOW_FV
+        # Check for Apriori
+        inf = match.group(4)
+        if self.apriori:
+            self.APRIORI[self.apriori].append(inf)
+            if Debug(SHOW_FV): print(f'{self.lineNumber}:{inf} added to {self.apriori} list (#{len(self.APRIORI[self.apriori])})')
+        # Normal INF entry
+        else:
+            # Add any detected options
+            opts = self.__getOptions__(match.group(1))
+            self.INFS.append((inf, opts))
+            if Debug(SHOW_FV): print(f'{self.lineNumber}:INF {inf}{self.__optionStr__(opts)}')
+
+    # Handle a match in the [fv] section that matches rePath
+    # match: Results of regex match
+    # returns nothing
+    def match_rePath(self, match):
+        global SHOW_FV
+        # Can only have this when a file is being described and when one of the other descriptors is active
+        if self.file == None or (self.compress != None or self.guided != None or self.sect != None):
+            self.ReportError('FV path not allowed outstide of file description')
+            return
+        # File type must be RAW
+        if not self.file['type'] == 'RAW':
+            self.ReportError('FV path only allowed with RAW file types')
+            return
+        path = match.group(1)
+        self.file['path'] = path
+        if Debug(SHOW_FV): print(f'{self.lineNumber}:{path}')
+
+    # Handle a match in the [rules] section that matches reRule
+    # match: Results of regex match
+    # returns nothing
+    def match_reRule(self, match):
+        global SHOW_RULE
+        kind, guid, opts = (match.group(1), match.group(2), self.__getOptions__(match.group(3), True))
+        self.rule = {'type': kind, 'guid': guid, 'options': opts}
+        if Debug(SHOW_RULE): print(f'{self.lineNumber}:{kind}={guid}{self.__optionStr__(opts)}')
+        if not match.groups(4) == None:
+            if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering rule descriptor')
+        else:
+            self.RULES.append(self.rule)
+            self.rule = None
+            
 
     # Handle a match in the [fv] section that matches reSection
     # match: Results of regex match
@@ -2359,64 +2534,25 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         if Debug(SHOW_FV): print(f'{self.lineNumber}:SECTION {kind} {value} {msg}')
         if Debug(SHOW_SUBSECTION_ENTER) and kind == 'GUIDED': print(f'{self.lineNumber}:Entering guided section')
 
-    # Handle a match in the [fv] or [fd] sections that matches reEndDesc
+    # Handle a match in the [rules] section that matches reVer
     # match: Results of regex match
     # returns nothing
-    def match_reEndDesc(self, match):
-        # End apriori list (if applicable)
-        if self.apriori != None:
-            # Clear Apriori list
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
-            self.apriori = None
-        # End compressed descriptor (if applicable)
-        elif self.compress != None:
-            # TBD add compressed info to whereever it belongs
-            self.compress = None
-        # End guided descriptor (if applicable)
-        elif self.guided != None:
-            # Add guided descriptor to appropriate item
-            if self.compress != None:
-                self.compress['guided'] = self.guided
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compress descriptor')
-            elif self.sect != None:
-                self.sect['guided']  = self.guided
-                self.file['sections'].append(self.sect)
-                self.sect            = None
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided section')
-            else:
-                self.file['guided']     = self.guided
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
-            # Clear guided descriptor
-            self.guided = None
-        # End file descriptor (if applicable)
-        elif self.file != None:
-            # Add file
-            self.FILES.append(self.file)
-            self.file = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
-        elif self.data != None:
-            self.FDS.append(self.data)
-            self.data = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting data list')
+    def match_reVer(self, match):
+        global SHOW_RULE
+        # Can only have this when a rule is being described
+        if self.rule == None:
+            self.ReportError('RULE must start with FILE description')
+            return
+        kind, opts = (match.group(1), self.__getOptions__(match.group(2).strip(), True))
+        if self.guided:
+            self.guided[kind] = self.__optionStr__(opts)[1:]
+            if Debug(SHOW_RULE): print(f'{self.lineNumber}:{kind}{self.guided[kind]}')
+        elif self.compress:
+            self.compress[kind] = self.__optionStr__(opts)[1:]
+            if Debug(SHOW_RULE): print(f'{self.lineNumber}:{kind}{self.compress[kind]}')
         else:
-            self.ReportError('End brace found without matching start brace')
-
-    # Handle a match in the [fv] section that matches rePath
-    # match: Results of regex match
-    # returns nothing
-    def match_rePath(self, match):
-        global SHOW_FV
-        # Can only have this when a file is being described and when one of the other descriptors is active
-        if self.file == None or (self.compress != None or self.guided != None or self.sect != None):
-            self.ReportError('FV path not allowed outstide of file description')
-            return
-        # File type must be RAW
-        if not self.file['type'] == 'RAW':
-            self.ReportError('FV path only allowed with RAW file types')
-            return
-        path = match.group(1)
-        self.file['path'] = path
-        if Debug(SHOW_FV): print(f'{self.lineNumber}:{path}')
+            self.rule[kind] = self.__optionStr__(opts)[1:]
+            if Debug(SHOW_RULE): print(f'{self.lineNumber}:{kind}{self.rule[kind]}')
 
     #################
     # Dump handlers #
@@ -2449,11 +2585,36 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         self.DumpTokenValue(self.FVS, 'FVs')
 
     def DumpRULES(self):
+        def DumpItems(item, skip, indent, handler):
+            result = ''
+            for attr in item.keys():
+                if attr in skip: continue
+                value = item[attr]
+                if type(value) is str: result += f"\n{indent}{attr} {FixUndefined(value)}"
+                else:                  result += handler(attr, item[attr])
+            return result
+        def ShouldNeverGetHere(attr, item):
+            self.ReportError('Error dumping rules')
+            return
+        def DumpLevel2(attr, item):
+            first  = item['type'] if attr == 'compress' else item['guid']
+            first  = '' if first == None else f' {first}'
+            result = f'\n                    {attr.upper()}{first}' + DumpItems(item, ['type'], '                        ', ShouldNeverGetHere)
+            return result
+        def DumpLevel1(attr, item):
+            first  = item['type'] if attr == 'compress' else item['guid']
+            first  = '' if first == None else f' {first}'
+            result = f'\n                {attr.upper()}{first}' + DumpItems(item, ['type'], '                    ', DumpLevel2)
+            return result
         if bool(self.RULES):
             print(f'    RULES:')
             for item in self.RULES:
-                items = FixUndefined(item['rule']).split()
-                print(f"        {' '.join(items)}")
+                kind = FixUndefined(item['type'])
+                opts = self.__optionStr__(item['options'])
+                guid = FixUndefined(item['guid'])
+                msg = f"        FILE {kind}={guid}{opts}"
+                msg += DumpItems(item, ['type', 'guid', 'options'], '            ', DumpLevel1)
+                print(msg)
 
     def DumpAPRIORI(self):
         if bool(self.APRIORI):
@@ -2468,8 +2629,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
             for i, item in enumerate(self.INFS):
                 msg = item[0]
                 for opt in item[1]:
-                    msg += f' {opt[0]}'
-                    if len(opt) > 1: msg += f'={opt[1]}'
+                    msg += f" {opt['option']}={opt['value']}"
                 print(f'        {i}:{msg}')
 
     def DumpFILES(self):
@@ -2738,8 +2898,6 @@ PlatformInfo(platform)
 ###########
 ### TBD ###
 ###########
-# - Still need to parse Rules sectuions in FDF files
-#   (this will mean adding support for COMPRESS and GUIDED FILE items
 # - Allow platform directory to be passed in instead of hard coded
 # - Convert other file lists to dictionaries and used MacroVer like it is used for DSC?
 # - Cross-reference items to make sure things are consistent?
