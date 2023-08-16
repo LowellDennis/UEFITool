@@ -399,7 +399,8 @@ Paths                   = []
 MacroVer                = 0
 Macros                  = {}
 
-# For keeping track of the files
+# For keeping track of the files and lines
+Lines                   = 0
 ARGs                    = {}
 DSCs                    = {}
 INFs                    = []
@@ -909,7 +910,7 @@ class UEFIParser:
     # Method for parsing a file file line by line
     # filePath:  file to be parsed
     def __parse__(self):
-        global reDefine, SHOW_FILENAMES, SHOW_CONDITIONAL_SKIPS
+        global reDefine, Lines, SHOW_FILENAMES, SHOW_CONDITIONAL_SKIPS
         if Debug(SHOW_FILENAMES): print(f"Processing {self.fileName}")
         # Read in the file
         try:
@@ -918,6 +919,7 @@ class UEFIParser:
             # Go through the content one at a time
             self.lineNumber = 0
             for line in content:
+                Lines           += 1
                 self.lineNumber += 1
 #                if (self.lineNumber, self.fileName) == (133, 'Intel/EagleStreamPlatform/EagleStreamFspPkg/EagleStreamFspPkg.fdf'):
 #                    pass
@@ -2842,7 +2844,7 @@ class PlatformInfo:
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
-        global ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES
+        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES
 
         # Parse all of the files
         for name, handler in [('Args', self.__processArgs__), ('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
@@ -2868,6 +2870,7 @@ class PlatformInfo:
             print(f"{item} files processed:     {values[i]}")
             total += values[i]
         print(f'Total files processed:   {total}')
+        print(f'Total lines processed:   {Lines}')
 
         print(f"\nList of Macros:")
         print(f"---------------")
