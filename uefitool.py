@@ -401,6 +401,7 @@ Macros                  = {}
 
 # For keeping track of the files and lines
 Lines                   = 0
+References              = {}
 ARGs                    = {}
 DSCs                    = {}
 INFs                    = []
@@ -412,6 +413,17 @@ SupportedArchitectures  = []
 
 # Determine if this is Windows OS
 isWindows  = 'WINDOWS' in platform.platform().upper()
+
+# Add a new refernce
+# reference: File being referenced
+# refererer: File (or platform) making the reference)
+# line:      Line number of the reference
+#            (this will be None for references from the platform directory)
+# returns nothing
+def AddReference(reference, referer, line):
+    global References
+    if not reference in References: References[reference] = []
+    References[reference].append( (referer, line) )
 
 # Debug output checker
 # check: Debug item to check
@@ -430,41 +442,6 @@ def Error(message):
     out.write(f"\n*** ERROR *** {message}\n")
     out.flush()
 
-# Set the value of a macro and update the macro version
-# macro: Name of macro to set
-# value: Value to be given to the macro
-# returns nothing
-def SetMacro(macro, value):
-    global MacroVer, Macros
-    if not macro in Macros or str(Macros[macro]) != str(value):
-        Macros[macro] = value
-        MacroVer      += 1
-    return f'v{MacroVer}:{macro} = {value}'
-
-# Join two paths together and make sure slashes are consistent
-# path1: First path to join
-# path2: Second path to join
-# returns conjoined path
-def JoinPath(path1, path2):
-    return os.path.join(path1, path2).replace('\\', '/')
-
-# Looks for a macro definition in a DSC file
-# dsc:   DSC file in which to search
-# macro: Macro for which to search
-# returns value associated with macro or None if not found
-def GetMacroValue(dsc, macro):
-    # Regular expression patter to match [DEFINE] <macro>=<value>
-    pattern = rf"^\s*(?:DEFINE\s+)?{macro}\s*=\s*(.*)$"
-    # Search the file line by line for the macro
-    with open(dsc, "r") as file:
-        for line in file:
-            match = re.match(pattern, line)
-            if match:
-                # Found it: return it's value!
-                return match.group(1).strip()
-    # Could not find it: return None
-    return None
-
 # Determine full path from partial path
 # partial: partial path for whcihc to search
 # returns full path or None if full path could not be found
@@ -477,6 +454,19 @@ def FindPath(partial):
         file = JoinPath(p, partial)
         if os.path.exists(file): return os.path.relpath(file, BasePath).replace('\\', '/')
     return None
+
+# Replace all occurances of __<macro>__UNDEFINED__ with $(<macro>) within a string.
+# string: String in which to look for replacements
+# returns string with any appropriate substrings replaced
+def FixUndefined(string):
+        # Look for all macros in the line (format "$(<macroName>)")
+        matches = re.findall(r'__([a-zA-Z0-9_]+)__UNDEFINED__', string)
+        # Loop through all ocurrances
+        for match in matches:
+            # Replace __macroName__UNDEFINED__ with $(macroName)
+            string = string.replace(f'__{match}__UNDEFINED__', f'$({match})')
+        # Return expanded line
+        return string
 
 # Add an entry to the database
 # Get section string
@@ -498,18 +488,40 @@ def GetVpdOptionNames(this, match, line):
     if match.group(4): return ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value']
     return                    ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value']
 
-# Replace all occurances of __<macro>__UNDEFINED__ with $(<macro>) within a string.
-# string: String in which to look for replacements
-# returns string with any appropriate substrings replaced
-def FixUndefined(string):
-        # Look for all macros in the line (format "$(<macroName>)")
-        matches = re.findall(r'__([a-zA-Z0-9_]+)__UNDEFINED__', string)
-        # Loop through all ocurrances
-        for match in matches:
-            # Replace __macroName__UNDEFINED__ with $(macroName)
-            string = string.replace(f'__{match}__UNDEFINED__', f'$({match})')
-        # Return expanded line
-        return string
+# Looks for a macro definition in a DSC file
+# dsc:   DSC file in which to search
+# macro: Macro for which to search
+# returns value associated with macro or None if not found
+def GetMacroValue(dsc, macro):
+    # Regular expression patter to match [DEFINE] <macro>=<value>
+    pattern = rf"^\s*(?:DEFINE\s+)?{macro}\s*=\s*(.*)$"
+    # Search the file line by line for the macro
+    with open(dsc, "r") as file:
+        for line in file:
+            match = re.match(pattern, line)
+            if match:
+                # Found it: return it's value!
+                return match.group(1).strip()
+    # Could not find it: return None
+    return None
+
+# Join two paths together and make sure slashes are consistent
+# path1: First path to join
+# path2: Second path to join
+# returns conjoined path
+def JoinPath(path1, path2):
+    return os.path.join(path1, path2).replace('\\', '/')
+
+# Set the value of a macro and update the macro version
+# macro: Name of macro to set
+# value: Value to be given to the macro
+# returns nothing
+def SetMacro(macro, value):
+    global MacroVer, Macros
+    if not macro in Macros or str(Macros[macro]) != str(value):
+        Macros[macro] = value
+        MacroVer      += 1
+    return f'v{MacroVer}:{macro} = {value}'
 
 # Base class for all UEFI file types
 class UEFIParser:
@@ -1325,6 +1337,7 @@ class ArgsParser(UEFIParser):
     def directive_include(self, line):
         global ARGs
         def includeHandler(file):
+            AddReference(file, self.fileName, self.lineNumber)     # Indicate reference to included file
             ARGs[file] = ChipsetParser(file)
         self.IncludeFile(line, includeHandler)
 
@@ -1593,6 +1606,7 @@ class DSCParser(UEFIParser):
     def directive_include(self, includeFile):
         global DSCs, MacroVer, SHOW_SKIPPED_DSCS
         def includeDSCFile(file):
+            AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
             if file in DSCs and  DSCs[file].macroVer == MacroVer:
                     if Debug(SHOW_SKIPPED_DSCS): print(f"{self.lineNumber}:Previously loaded:{file}")
             else: DSCs[file] = DSCParser(file, self.sections, self.process)
@@ -1642,7 +1656,9 @@ class DSCParser(UEFIParser):
     # returns nothing
     def match_reLibraryClasses(self, match):
         global INFs
-        INFs.append( (self.fileName, self.lineNumber, match.group(3).replace('"', '')) )
+        file = match.group(3).replace('"', '')
+        AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
+        INFs.append( (self.fileName, self.lineNumber, file) )
 
     #################
     # Dump handlers #
@@ -1817,7 +1833,9 @@ class INFParser(UEFIParser):
     # returns nothing
     def match_rePackages(self, match):
         global DECs
-        DECs.append((self.fileName, self.lineNumber, match.group(1)))
+        file = match.group(1)
+        AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
+        DECs.append((self.fileName, self.lineNumber, file))
 
     #################
     # Dump handlers #
@@ -2007,7 +2025,9 @@ class DECParser(UEFIParser):
         if not self.inSubsection:
             self.ReportError('section packages cannot be used outside of braces')
             return
-        DECs.append((self.fileName, self.lineNumber, match.group(1)))
+        file = match.group(1)
+        AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
+        DECs.append((self.fileName, self.lineNumber, file))
 
     # Handle a match in the <HeaderFiles> subsection
     # match: Results of regex match
@@ -2230,6 +2250,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     def directive_include(self, line):
         global DSCs, MacroVer, FDFs, SHOW_SKIPPED_DSCS, SHOW_SKIPPED_FDFS
         def includeHandler(file):
+            AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
             if file.lower().endswith(".dsc"):
                 if file in DSCs and DSCs[file].macroVer == MacroVer:
                     if Debug(SHOW_SKIPPED_DSCS): print(f"{self.lineNumber}:Previously loaded:{file}")
@@ -2795,10 +2816,12 @@ class PlatformInfo:
 
     def __processArgs__(self):
         global ARGs
+        AddReference(self.argsFile, self.platform, None)    # Args file is referenced by the platform!
         ARGs[self.argsFile] = ArgsParser(self.argsFile)
 
     def __processDSCs__(self):
         global DSCs
+        AddReference(self.dscFile, self.platform, None)     # DSC file is referenced by the platform!
         DSCs[self.dscFile] = DSCParser(self.dscFile)
 
     def __processINFs__(self):
@@ -2839,6 +2862,7 @@ class PlatformInfo:
 
     def __processFDFs__(self):
         global FDFs
+        AddReference(self.fdfFile, self.platform, None)     # FDF file is referenced by the platform!
         FDFs[self.fdfFile] = FDFParser(self.fdfFile)
 
     # Process a platform and output the results
@@ -2905,6 +2929,7 @@ PlatformInfo(platform.replace('\\', '/'))
 ###########
 ### TBD ###
 ###########
+# - With references added, reference withing INF and DEC can be removed
 # - Convert other file lists to dictionaries and used MacroVer like it is used for DSC?
 # - Cross-reference items to make sure things are consistent?
 # - Generate files instead of output to the screen so it can be used by other utilites
