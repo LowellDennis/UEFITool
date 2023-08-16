@@ -2893,10 +2893,14 @@ class PlatformInfo:
     ##################
     # None
 
-# Indicate platform to be processed
-#platform = "D:/ROMS/G11/a55/HpeProductLine/Volume/HpPlatforms/A55Pkg"
-platform = "D:/ROMS/G11/u54/HpeProductLine/Volume/HpPlatforms/U54Pkg"
-PlatformInfo(platform)
+# Look for command line input of platform directory
+argc = len(sys.argv)
+if argc > 1:
+    platform = sys.argv[1]
+else:
+    platform = os.getcwd()
+print(f'Processing {platform} as HPE platform directory')
+PlatformInfo(platform.replace('\\', '/'))
 
 ###########
 ### TBD ###
