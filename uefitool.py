@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Standard python modules
+import argparse
 import platform
 import os
 import re
@@ -9,6 +10,11 @@ from   random import random
 
 # Local modules
 # None
+
+###################
+# Program version #
+###################
+ProgramVersion = 0.1
 
 ###################
 # DEBUG Constants #
@@ -71,10 +77,10 @@ SHOW_FILENAMES               = 0X0000000000000001    # Show names of files being
 
 # All in one setting values
 DEBUG_NONE                   = 0x0000000000000000
-DEBUG_MINIMAL                = 0x0000000000000001
-DEBUG_NORMAL                 = 0x000000000000000F
-DEBUG_SUBSTANTIAL            = 0x00FFFFFFFFFFFFFF
-DEBUG_VERBOSE                = 0xFFFFFFFFFFFFFFFF
+DEBUG_MINIMUM                = 0x0000000000000001
+DEBUG_TYPICAL                = 0x000000000000000F
+DEBUG_VERBOSE                = 0x00FFFFFFFFFFFFFF
+DEBUG_ALL                    = 0xFFFFFFFFFFFFFFFF
 
 # Set the debug level
 DebugLevel                   = DEBUG_NONE
@@ -392,6 +398,7 @@ reSet                 = r'^(set)\s+' + reFirmEquate
 reVer                 = r'(VERSION|UI)\s+(.+)$'
 
 # Global Variables
+CommandLine             = None
 BasePath                = None
 Paths                   = []
 
@@ -525,6 +532,16 @@ def SetMacro(macro, value):
         Macros[macro] = value
         MacroVer      += 1
     return f'v{MacroVer}:{macro} = {value}'
+
+# Display usage information
+# msg: Option error message
+# DOES NOT RETURN!
+def Usage(msg = None):
+    global CommandLine
+    if msg: Error(msg)
+    if CommandLine:
+        CommandLine.print_help()
+    sys.exit(1)
 
 # Base class for all UEFI file types
 class UEFIParser:
@@ -980,8 +997,8 @@ class UEFIParser:
             for line in content:
                 Lines           += 1
                 self.lineNumber += 1
-                if (self.lineNumber, self.fileName) == (41, 'HpeServerCore/HpPlatformsCommon/Packages/HpGromitCommonPkg/HpGromitCommonPkgDrivers.dsc'):
-                    pass
+                #if (self.lineNumber, self.fileName) == (41, 'HpeServerCore/HpPlatformsCommon/Packages/HpGromitCommonPkg/HpGromitCommonPkgDrivers.dsc'):
+                #    pass
                 line = self.__removeComments__(line)
                 if not line:
                     continue
@@ -3055,89 +3072,72 @@ class PlatformInfo:
     ##################
     # None
 
+    #####################
+    # CommandLineParser #
+    #####################
+    # None
+
+# Handles command line errors
+class CommandLineParser(argparse.ArgumentParser):
+
+  def error(self, msg):
+    message = self.format_usage() + self.prog + ': error: ' + msg
+    Error(message)
+    exit(1)
+
+# This will allow user to input debug level
+# as decimal or hexadecimal (with leading 0x)
+def auto_int(x):
+  ret = int(x, 0)
 
 ################
 # Main Program #
 ################
-
-# Display usage information
-# msg: Option error message
-# DOES NOT RETURN!
-def Usage(msg = None):
-    if msg: Error(msg)
-    print(f"UEFI Tool V0.1")
-    print(f"usage {sys.argv[0]} [-?] [-m | -n | -v | | -a | -d level] [path]")
-    print(f"  -?:   This usage")
-    print(f"  -m:   Set debug output to minimal")
-    print(f"  -n:   Set debug output to normal")
-    print(f"  -v:   Set debug output to verbose")
-    print(f"  -a:   Set debug output to all")
-    print(f"  -d:   Sets debug output indicated level (64-bit hex number)")
-    print(f"        NOTE: debug output will be set to last one of the above encountered")
-    print(f"              By default there is no debug output")
-    print(f"  path: Path to BIOS source code platform directory")
-    print(f"        NOTE: Any arguments after path will be ignored")
-    print(f"              If no path is given the current directory is used")
-    sys.exit(1)
-
-def DbgMinimal():
-    global DebugLevel, DEBUG_MINIMAL
-    DebugLevel = DEBUG_MINIMAL
-
-def DbgNormal():
-    global DebugLevel, DEBUG_NORMAL
-    DebugLevel = DEBUG_NORMAL
-
-def DbgSubstantial():
-    global DebugLevel, DEBUG_SUBSTANTIAL
-    DebugLevel = DEBUG_SUBSTANTIAL
-
-def DbgVerbose():
-    global DebugLevel, DEBUG_VERBOSE
+CommandLine = CommandLineParser(description=f'HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V{ProgramVersion}')
+# Add ability to control debug output
+group = CommandLine.add_mutually_exclusive_group()
+group.add_argument('-m', '--minimum',
+                   action = 'store_true',
+                   dest='minimum',
+                   help='turn on minimum debug output')
+group.add_argument('-t', '--typical',
+                   action = 'store_true',
+                   dest='typical',
+                   help='turn on typical debug output')
+group.add_argument('-v', '--verbose',
+                   action = 'store_true',
+                   dest='verbose',
+                   help='turn on verbose debug output')
+group.add_argument('-a', '--all',
+                   action = 'store_true',
+                   dest='all',
+                   help='turn on all debug output')
+group.add_argument('-d', '--debug',
+                   dest='debug',
+                   metavar='type',
+                   type=auto_int,
+                   nargs='*',
+                   default=0,
+                   help='turn on debug to a specific level (64-bit integer, use 0x prefix to specify in hex)')
+# Add path to platform directory
+CommandLine.add_argument('path',
+                   metavar='path',
+                   type=str,
+                   help='path to platform directory (default is current directory')
+# Parse the command line
+result = CommandLine.parse_args()
+# Handle results of command line parsing
+if result.minimum:
+    DebugLevel = DEBUG_MINIMUM
+elif result.typical:
+    DebugLevel = DEBUG_TYPICAL
+elif result.verbose:
     DebugLevel = DEBUG_VERBOSE
-
-ExpectLevel = False     # -d option has not been used, so level value is not expected
-def DbgLevel():
-    global ExpectLevel
-    ExpectLevel = True
-
-# For option handling
-OptHandler = {'?': Usage, 'h': Usage, 'm': DbgMinimal, 'n': DbgNormal, 's': DbgSubstantial, 'v': DbgVerbose, 'd': DbgLevel}
-
-# Defaults
-platform    = os.getcwd()
-
-# Handle command line input
-for arg in sys.argv[1:]:
-    if ExpectLevel:
-        try:
-            # Convert from hex ASCII to integer
-            ExpectLevel = False
-            DebugLevel  = int(arg, 16)
-        except ValueError:
-            Usage(f"Invalid value for debug level: {arg}")
-            # Does not return!
-    else:
-        # Look for possible options
-        if len(arg) == 2 and arg[0] in '-/':    # Linux uses '-', Windows uses '/'
-            opt = arg[1].lower()                # For now make this case insensitive
-            # Validate option
-            if not opt in OptHandler:
-                Usage(f"Unsupported command line option: {arg}")
-                # Does not return!
-            # Handle option
-            OptHandler[opt]()
-        else:
-            # Must be the path
-            platform = arg
-            break
+elif result.all:
+    DebugLevel = DEBUG_ALL
 else:
-    # Gets here when loop exits without break
-    # Make sure value ExpectLevel was answered
-    if ExpectLevel:
-        Usage(f"-d must be followed by a debug setting")
-        # Does not return!
-
+     DebugLevel = result.debug
+platform = os.getcwd() if not result.path else result.path
 print(f'Processing {platform} as HPE platform directory')
 PlatformInfo(platform.replace('\\', '/'))
 
