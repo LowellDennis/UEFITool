@@ -3080,10 +3080,14 @@ class PlatformInfo:
 # Handles command line errors
 class CommandLineParser(argparse.ArgumentParser):
 
+  def __init__(self):
+        global ProgramVersion
+        super().__init__(prefix_chars='-/', description=f'HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V{ProgramVersion}')
+
   def error(self, msg):
-    message = self.format_usage() + self.prog + ': error: ' + msg
-    Error(message)
-    exit(1)
+      message = self.format_usage() + self.prog + ': error: ' + msg
+      Error(message)
+      exit(1)
 
 # This will allow user to input debug level
 # as decimal or hexadecimal (with leading 0x)
@@ -3093,8 +3097,11 @@ def auto_int(x):
 ################
 # Main Program #
 ################
-CommandLine = CommandLineParser(description=f'HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V{ProgramVersion}')
+CommandLine = CommandLineParser()
 # Add ability to control debug output
+CommandLine.add_argument('-?',
+                   action = 'help',
+                   help=argparse.SUPPRESS)
 group = CommandLine.add_mutually_exclusive_group()
 group.add_argument('-m', '--minimum',
                    action = 'store_true',
