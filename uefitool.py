@@ -77,7 +77,7 @@ DEBUG_VERBOSE                = 0x00FFFFFFFFFFFFFF
 DEBUG_ALL                    = 0xFFFFFFFFFFFFFFFF
 
 # Set the debug level
-DebugLevel                   = DEBUG_ALL
+DebugLevel                   = DEBUG_NONE
 
 ################################
 # Regular expression constants #
@@ -2938,12 +2938,89 @@ class PlatformInfo:
     ##################
     # None
 
-# Look for command line input of platform directory
-argc = len(sys.argv)
-if argc > 1:
-    platform = sys.argv[1]
+
+################
+# Main Program #
+################
+
+# Display usage information
+# msg: Option error message
+# DOES NOT RETURN!
+def Usage(msg = None):
+    if msg: Error(msg)
+    print(f"UEFI Tool V0.1")
+    print(f"usage {sys.argv[0]} [-?] [-m | -n | -v | | -a | -d level] [path]")
+    print(f"  -?:   This usage")
+    print(f"  -m:   Set debug output to minimal")
+    print(f"  -n:   Set debug output to normal")
+    print(f"  -v:   Set debug output to verbose")
+    print(f"  -a:   Set debug output to all")
+    print(f"  -d:   Sets debug output indicated level (64-bit hex number)")
+    print(f"        NOTE: debug output will be set to last one of the above encountered")
+    print(f"              By default there is no debug output")
+    print(f"  path: Path to BIOS source code platform directory")
+    print(f"        NOTE: Any arguments after path will be ignored")
+    print(f"              If no path is given the current directory is used")
+    sys.exit(1)
+
+def DbgMinimal():
+    global DebugLevel, DEBUG_MINIMAL
+    DebugLevel = DEBUG_MINIMAL
+
+def DbgNormal():
+    global DebugLevel, DEBUG_NORMAL
+    DebugLevel = DEBUG_NORMAL
+
+def DbgVerbose():
+    global DebugLevel, DEBUG_VERBOSE
+    DebugLevel = DEBUG_VERBOSE
+
+def DbgAll():
+    global DebugLevel, DEBUG_ALL
+    DebugLevel = DEBUG_ALL
+
+ExpectLevel = False     # -d option has not been used, so level value is not expected
+def DbgLevel():
+    global ExpectLevel
+    ExpectLevel = True
+
+# For option handling
+OptHandler = {'?': Usage, 'h': Usage, 'm': DbgMinimal, 'n': DbgNormal, 'v': DbgVerbose, 'a': DbgAll, 'd': DbgLevel}
+
+# Defaults
+platform    = os.getcwd()
+
+# Handle command line input
+for arg in sys.argv[1:]:
+    if ExpectLevel:
+        try:
+            # Convert from hex ASCII to integer
+            ExpectLevel = False
+            DebugLevel  = int(arg, 16)
+        except ValueError:
+            Usage(f"Invalid value for debug level: {arg}")
+            # Does not return!
+    else:
+        # Look for possible options
+        if len(arg) == 2 and arg[0] in '-/':    # Linux uses '-', Windows uses '/'
+            opt = arg[1].lower()                # For now make this case insensitive
+            # Validate option
+            if not opt in OptHandler:
+                Usage(f"Unsupported command line option: {arg}")
+                # Does not return!
+            # Handle option
+            OptHandler[opt]()
+        else:
+            # Must be the path
+            platform = arg
+            break
 else:
-    platform = os.getcwd()
+    # Gets here when loop exits without break
+    # Make sure value ExpectLevel was answered
+    if ExpectLevel:
+        Usage(f"-d must be followed by a debug setting")
+        # Does not return!
+
 print(f'Processing {platform} as HPE platform directory')
 PlatformInfo(platform.replace('\\', '/'))
 
