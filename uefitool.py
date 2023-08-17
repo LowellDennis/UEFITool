@@ -7,7 +7,7 @@ import re
 import sys
 from   random import random
 
-# Local modulesre
+# Local modules
 # None
 
 ###################
@@ -31,8 +31,8 @@ SHOW_CONVERTED_CONDITIONAL   = 0x0020000000000000    # Show conditional after co
 SHOW_SPECIAL_HANDLERS        = 0x0008000000000000    # Show special handlers
 SHOW_INCLUDE_RETURN          = 0x0004000000000000    # Show when returing from an included files
 SHOW_INCLUDE_DIRECTIVE       = 0x0002000000000000    # Show include directive lines
-SHOW_SUBSECTION_ENTER        = 0x0000800000000000    # Show entry into subsections
-SHOW_SUBSSECTION_EXIT        = 0x0000400000000000    # Show exit  from subsections
+SHOW_SUBELEMENT_ENTER        = 0x0000800000000000    # Show entry into sub-elements
+SHOW_SUBELEMENT_EXIT        = 0x0000400000000000    # Show exit  from sub-elements
 # Section entry handling
 SHOW_USEREXTENSIONS          = 0x0000000200000000    # Show lines in UserExtensions      sections
 SHOW_TAGEXCEPTIONS           = 0x0000000100000000    # Show lines in TagException        sections
@@ -73,8 +73,8 @@ SHOW_FILENAMES               = 0X0000000000000001    # Show names of files being
 DEBUG_NONE                   = 0x0000000000000000
 DEBUG_MINIMAL                = 0x0000000000000001
 DEBUG_NORMAL                 = 0x000000000000000F
-DEBUG_VERBOSE                = 0x00FFFFFFFFFFFFFF
-DEBUG_ALL                    = 0xFFFFFFFFFFFFFFFF
+DEBUG_SUBSTANTIAL            = 0x00FFFFFFFFFFFFFF
+DEBUG_VERBOSE                = 0xFFFFFFFFFFFFFFFF
 
 # Set the debug level
 DebugLevel                   = DEBUG_NONE
@@ -190,7 +190,7 @@ reuPatches             = r'^' + reHardEquate
 reBuildOptions         = r'^(([^:]+):)?\s*([^\s=]+)\s*=\s*([^\\]+)?(\\)?$'
 
 # Regular expression for matching lines with format "inf [{]"
-# Groups 1=>inf, 3=>optional { (subsection start indicator)
+# Groups 1=>inf, 3=>optional sub-element start marker
 reComponents           = r'^([^\s\{]+)(\s*(\{)?)?$'
 
 # Regular expression for matching lines with format "value | name"
@@ -210,7 +210,7 @@ reEdkGlobals           = reDefine.replace('DEFINE', 'EDK_GLOBAL')
 reLibraryClasses       = r'^' + re1Bar
 
 # Regular expression for matching lines with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
-# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional subsection marker
+# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional sub-element marker
 reItem                 = r'\s*\|\s*(L?\"[^\"]+\"|\{[^\}]+\}|[^\s\|\{}]+)'
 rePcds                 = fr'^([^\.]+)\.([^\s\|]+)({reItem}({reItem}({reItem}({reItem}({reItem}?)?)?)?)?)?' + r'\s*(\{)?$'
 
@@ -293,7 +293,7 @@ reSources              = r'^' + re1to8Items
 # reLibraryClasses same as above
 
 # Regular expression for matching lines with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
-# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional subsection marker
+# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional sub-element start marker
 # rePcds same as above
 
 # Regular expression for matching lines with format "ppi = value"
@@ -320,7 +320,7 @@ reHeaderFiles          = r'^' + reToEOL
 #####################################
 
 # Regular expression for matching lines with format "token = value"
-# Groups 1=>DXE|PEI, 2=>subsection marker
+# Groups 1=>DXE|PEI, 2=>sub-element start marker
 reApriori              = r'^APRIORI\s+(PEI|DXE)\s*(\{)$'
 
 # Regular expression for matching lines with format "token = value"
@@ -685,10 +685,9 @@ class UEFIParser:
         # Look for section header (format "[<sections>]")
         match = re.match(r'\[([^\[\]]+)\]', line)
         if not match: return False
-        # Check for unended subsection
+        # Check for unended sub-element
         if self.inSubsection and bool(self.sections):
             self.ReportError(f"{self.section[0]} section missing closing brace")
-            #print(f"{self.lineNumber}:{self.fileName} Setting insubsection to FALSE!")
             self.inSubsection = False
         # Call onexit section handlers (if any)
         if bool(self.sections):
@@ -828,20 +827,21 @@ class UEFIParser:
                 handler(idx, match)
         # else taken care of in __handleMatch__
 
-    # Handle subsection process (not call unless section supports subsections)
+    # Handle sub-element processing
+    # (not called unless section supports sub-elements)
     # line: Line which is to be handled
     def __handleSubsection__(self, line):
-        global SHOW_SUBSSECTION_EXIT
+        global SHOW_SUBELEMENT_EXIT
         # Just in case there a some trailing C style comment on the line (which should be an error)!
         line = line.split(" //")[0]
-        # Look for end of subsection block
+        # Look for end of sub-element block
         if line.endswith("}") and self.inSubsection:
-            # Signal end of subsection block and subsection
+            # Signal end of sub-element block and sub-element
             self.inSubsection = False
             self.subsections  = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f"{self.lineNumber}:Exiting subsection")
+            if Debug(SHOW_SUBELEMENT_EXIT): print(f"{self.lineNumber}:Exiting sub-element")
             return
-        # Look for subsection marker
+        # Look for sub-element marker
         if "<" in line:
             # Convert to normal section format
             line              = line.lower().replace("<", "[").replace(">", "]")
@@ -849,20 +849,20 @@ class UEFIParser:
             sections          = self.sections
             # Don't call exit section handlers
             self.sections     = []
-            # Handle subsection entry
+            # Handle sub-element entry
             self.__handleNewSection__(line)
-            # Save subsection information
+            # Save sub-element information
             self.subsections  = self.sections
             # Restore the original section info
             self.sections     = sections
             return
-        # Handle case where a subsection was already marked
+        # Handle case where a sub-element was already marked
         elif self.subsections:
             # Save current section info
             sections          = self.sections
-            # Set subsection info
+            # Set sub-element info
             self.sections     = self.subsections
-            # Process the section line (ignoring subsections)
+            # Process the section line (ignoring sub-elements)
             self.__handleIndividualLine__(line, True)
             # Restore the original section info
             self.sections     = sections
@@ -883,7 +883,7 @@ class UEFIParser:
         # See if a line continuation is being processed
         if self.lineContinuation:
             self.__handleLineContinuation__(line)
-        # See if subsection is being processed
+        # See if sub-element is being processed
         elif not ignoreSubsection and self.inSubsection:
             self.__handleSubsection__(line)
         # Must be in a section
@@ -1128,17 +1128,17 @@ class UEFIParser:
         else:
             if Debug(SHOW_CONDITIONAL_SKIPS): print(f"{self.lineNumber}:SKIPPED - Conditionally")
 
-    # Used to mark entry into a subsection
+    # Used to mark entry into a sub-element
     def EnterSubsection(self):
-        global SHOW_SUBSECTION_ENTER
+        global SHOW_SUBELEMENT_ENTER
         # This only needs to happen for first section in sections that are grouped together
         if self.sections.index(self.section) == 0:
-            # Make sure previous subsection is done
+            # Make sure previous sub-element is done
             if self.inSubsection:
-                self.ReportError('Unable to enter subsection because already in subsection')
+                self.ReportError('Unable to enter sub-element because already in sub-element')
                 return
             self.inSubsection = True
-            if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering subsection')
+            if Debug(SHOW_SUBELEMENT_ENTER): print(f'{self.lineNumber}:Entering sub-element')
 
     ####################
     # Special handlers #
@@ -1363,6 +1363,7 @@ class ArgsParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def match_reHpBuildArgs(self, match):
+        # Only care about things that are being defined using the -D option
         if match.group(2) == '-D':
             macro = match.group(4)
             if not macro:
@@ -1633,7 +1634,7 @@ class DSCParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def match_reComponents(self, match):
-        # Look for subsection entry
+        # Look for sub-element entry
         if match.group(3) and match.group(3) == '{':
             self.EnterSubsection()
 
@@ -1945,7 +1946,7 @@ class DECParser(UEFIParser):
                     'ppis':                  (SHOW_PPIS,           'rePpis',               ArgsPpis),
                     'protocols':             (SHOW_PROTOCOLS,      'reProtocolsEqu',       ArgsProtocols),
                     'userextensions':        (SHOW_USEREXTENSIONS, 'reUserExtensions',     ArgsUserExtensions),
-                    # Below are specail section handlers that can only occur when processing a subsection!
+                    # Below are special section handlers that can only occur when processing a sub-element!
                     'packages':              (SHOW_PACKAGES,       'rePackages',           ArgsPackages),
                     'headerfiles':           (SHOW_HEADERFILES,    'reHeaderFiles',        ArgsHeaderFiles),
     }
@@ -2007,7 +2008,7 @@ class DECParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def match_rePcds(self, match):
-        # See if we need to enter subsection
+        # See if we need to enter a sub-element
         if match.group(13) and match.group(13) == '{':
             self.EnterSubsection()
 
@@ -2015,12 +2016,12 @@ class DECParser(UEFIParser):
     # Match handlers (only when inSubsection) #
     ###########################################
 
-    # Handle a match in the <Packaves> subsection
+    # Handle a match in the <Packages> sub-element
     # match: Results of regex match
     # returns nothing
     def matchPackages(self, match):
         global DECs
-        # Only allow this section handler if in a subsection
+        # Only allow this section handler if in a sub-element
         if not self.inSubsection:
             self.ReportError('section packages cannot be used outside of braces')
             return
@@ -2028,11 +2029,11 @@ class DECParser(UEFIParser):
         AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
         DECs.append(self.fileName)
 
-    # Handle a match in the <HeaderFiles> subsection
+    # Handle a match in the <HeaderFiles> sub-element
     # match: Results of regex match
     # returns nothing
     def matchHeaderFiles(self, match):
-        # Only allow this section handler if in a subsection
+        # Only allow this section handler if in a sub-element
         if not self.inSubsection:
             self.ReportError('section headerfiles cannot be used outside of braces')
 
@@ -2072,11 +2073,11 @@ class DECParser(UEFIParser):
     def DumpUSEREXTENSIONS(self):
         DSCParser.DumpUSEREXTENSIONS(self)
 
-    # Dump <Packeges> subsection
+    # Dump <Packeges> sub-element
     def DumpPACKAGES(self):
         UEFIParser.DumpSingle(self, self.PACKAGES, 'Packages', 'path', True)
 
-    # Dump <HeaderFiles> subsection
+    # Dump <HeaderFiles> sub-element
     def DumpHEADERFILES(self):
         UEFIParser.DumpSingle(self, self.HEADERFILES, 'HeaderFiles', 'path', True)
 
@@ -2337,25 +2338,25 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         # End apriori list (if applicable)
         if self.apriori != None:
             # Clear Apriori list
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
+            if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
             self.apriori = None
         # End guided descriptor (if applicable)
         elif self.guided != None:
             # Add guided descriptor to appropriate item
             if self.compress != None:
                 self.compress['guided'] = self.guided
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compress descriptor')
+                if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting compress descriptor')
             elif self.sect != None:
                 self.sect['guided']  = self.guided
                 self.file['sections'].append(self.sect)
                 self.sect            = None
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided section')
+                if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting guided section')
             elif self.file:
                 self.file['guided']     = self.guided
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
+                if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
             elif self.rule:
                 self.rule['guided'] = self.guided
-                if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
+                if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting guided descriptor')
             else:
                 self.ReportError('Unmatched ending brace characrter encountered: }')
             # Clear guided descriptor
@@ -2365,22 +2366,22 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
             # Add file
             self.FILES.append(self.file)
             self.file = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
+            if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting file descriptor')
         # End data list (if applicable)
         elif self.data != None:
             self.FDS.append(self.data)
             self.data = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting data list')
+            if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting data list')
         # End compressed descriptor (if applicable)
         elif self.compress != None:
             self.rule['compress'] = self.compress
             self.compress = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting compressed descriptor')
+            if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting compressed descriptor')
         # End rule descriptor (if applicable)
         elif self.rule != None:
             self.RULES.append(self.rule)
             self.rule = None
-            if Debug(SHOW_SUBSSECTION_EXIT): print(f'{self.lineNumber}:Exiting rule descriptor')
+            if Debug(SHOW_SUBELEMENT_EXIT): print(f'{self.lineNumber}:Exiting rule descriptor')
         else:
             self.ReportError('End brace found without matching start brace')
 
@@ -2420,7 +2421,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # match: Results of regex match
     # returns nothing
     def match_reFile(self, match):
-        global SHOW_FV, SHOW_SUBSECTION_ENTER
+        global SHOW_FV, SHOW_SUBELEMENT_ENTER
         global Files
         def HandleOptionValue(token, msg):
             value  = token
@@ -2440,7 +2441,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         guid = match.group(2)
         self.file = {'type': kind, 'guid': guid, 'options': self.__getOptions__(match.group(3), True), 'sections': []}
         if Debug(SHOW_FV): print(f'{self.lineNumber}:FILE {kind} {guid}{msg}')
-        if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering file descriptor')
+        if Debug(SHOW_SUBELEMENT_ENTER): print(f'{self.lineNumber}:Entering file descriptor')
 
     # Handle a match in the [rules] section that matches reGuided
     # match: Results of regex match
@@ -2499,7 +2500,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         self.rule = {'type': kind, 'guid': guid, 'options': opts}
         if Debug(SHOW_RULE): print(f'{self.lineNumber}:{kind}={guid}{self.__optionStr__(opts)}')
         if not match.groups(4) == None:
-            if Debug(SHOW_SUBSECTION_ENTER): print(f'{self.lineNumber}:Entering rule descriptor')
+            if Debug(SHOW_SUBELEMENT_ENTER): print(f'{self.lineNumber}:Entering rule descriptor')
         else:
             self.RULES.append(self.rule)
             self.rule = None
@@ -2509,7 +2510,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # match: Results of regex match
     # returns nothing
     def match_reSection(self, match):
-        global SHOW_FV, SHOW_SUBSECTION_ENTER
+        global SHOW_FV, SHOW_SUBELEMENT_ENTER
         if Debug(SHOW_FV): msg = ''
         if self.file == None:
             self.ReportError('SECTION not allowed outstide of file description')
@@ -2555,7 +2556,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         else:
             self.sect = sect
         if Debug(SHOW_FV): print(f'{self.lineNumber}:SECTION {kind} {value} {msg}')
-        if Debug(SHOW_SUBSECTION_ENTER) and kind == 'GUIDED': print(f'{self.lineNumber}:Entering guided section')
+        if Debug(SHOW_SUBELEMENT_ENTER) and kind == 'GUIDED': print(f'{self.lineNumber}:Entering guided section')
 
     # Handle a match in the [rules] section that matches reVer
     # match: Results of regex match
@@ -2782,7 +2783,7 @@ class PlatformInfo:
         global Paths, SHOW_MACRO_DEFINITIONS
         paths = os.environ["PACKAGES_PATH"].replace("\\", "/")
         Paths = paths.split(";")
-        result = SetMacro("PACKAGE_PATH", Paths)
+        result = SetMacro("PACKAGES_PATH", Paths)
         if Debug(SHOW_MACRO_DEFINITIONS): print(f'{result}')
 
     # Finds the chipset DSC file
@@ -2971,13 +2972,13 @@ def DbgNormal():
     global DebugLevel, DEBUG_NORMAL
     DebugLevel = DEBUG_NORMAL
 
+def DbgSubstantial():
+    global DebugLevel, DEBUG_SUBSTANTIAL
+    DebugLevel = DEBUG_SUBSTANTIAL
+
 def DbgVerbose():
     global DebugLevel, DEBUG_VERBOSE
     DebugLevel = DEBUG_VERBOSE
-
-def DbgAll():
-    global DebugLevel, DEBUG_ALL
-    DebugLevel = DEBUG_ALL
 
 ExpectLevel = False     # -d option has not been used, so level value is not expected
 def DbgLevel():
@@ -2985,7 +2986,7 @@ def DbgLevel():
     ExpectLevel = True
 
 # For option handling
-OptHandler = {'?': Usage, 'h': Usage, 'm': DbgMinimal, 'n': DbgNormal, 'v': DbgVerbose, 'a': DbgAll, 'd': DbgLevel}
+OptHandler = {'?': Usage, 'h': Usage, 'm': DbgMinimal, 'n': DbgNormal, 's': DbgSubstantial, 'v': DbgVerbose, 'd': DbgLevel}
 
 # Defaults
 platform    = os.getcwd()
