@@ -398,7 +398,7 @@ reSet                 = r'^(set)\s+' + reFirmEquate
 reVer                 = r'(VERSION|UI)\s+(.+)$'
 
 # Global Variables
-CommandLine             = None
+CommandLineResults      = None
 BasePath                = None
 Paths                   = []
 
@@ -3023,7 +3023,7 @@ class PlatformInfo:
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
-        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES
+        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES, CommandLineResults
 
         # Parse all of the files
         for name, handler in [('Args', self.__processArgs__), ('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
@@ -3051,11 +3051,13 @@ class PlatformInfo:
         print(f'Total files processed:   {total}')
         print(f'Total lines processed:   {Lines}')
 
-        print(f"\nList of Macros:")
-        print(f"---------------")
-        for macro in self.__sortedKeys__(Macros): print(f"{macro}={Macros[macro]}")
+        if not CommandLineResults.macros:
+            print(f"\nGenerating macros.lst ...")
+            with open(os.path.join(platform, 'macros.lst'), 'w') as lst:
+                for macro in self.__sortedKeys__(Macros):
+                    lst.write(f"{macro}={Macros[macro]}\n")
 
-        # Show information from the files processed
+        # Gather information from the files processed
         for list in ['ARGs', 'DSCs', 'INFs', 'DECs', 'FDFs']:
             print(f'\n{list[0:-1].upper()} Information:')
             length = len(' Information:') + len(list[0:-1])
@@ -3098,15 +3100,56 @@ def auto_int(x):
 # Main Program #
 ################
 CommandLine = CommandLineParser()
-# Add ability to control debug output
+# Add ability to get help
 CommandLine.add_argument('-?',
                    action = 'help',
                    help=argparse.SUPPRESS)
-group = CommandLine.add_mutually_exclusive_group()
-group.add_argument('-m', '--minimum',
+# Add ability to control macro listing
+CommandLine.add_argument('-m', '--macros',
                    action = 'store_true',
-                   dest='minimum',
-                   help='turn on minimum debug output')
+                   dest='macros',
+                   help='do not generate macro list (macros.lst)')
+# Add ability to control source files listing
+CommandLine.add_argument('-s', '--source',
+                   action = 'store_true',
+                   dest='source',
+                   help='do not generate source file list (source.lst)')
+# Add ability to control PCD listing
+CommandLine.add_argument('-p', '--pcds',
+                   action = 'store_true',
+                   dest='pcds',
+                   help='do not generate pcd list (pcd.lst)')
+# Add ability to control apriori listing
+CommandLine.add_argument('-a', '--apriori',
+                   action = 'store_true',
+                   dest='apriori',
+                   help='do not generate apiriori list (apriori.lst)')
+# Add ability to control protocol listing
+CommandLine.add_argument('-i', '--ppis',
+                   action = 'store_true',
+                   dest='ppis',
+                   help='do not generate ppi list (ppis.lst)')
+# Add ability to control protocol listing
+CommandLine.add_argument('-r', '--protocols',
+                   action = 'store_true',
+                   dest='protocols',
+                   help='do not generate protocol list (protocol.lst)')
+# Add ability to control protocol listing
+CommandLine.add_argument('-g', '--guids',
+                   action = 'store_true',
+                   dest='guids',
+                   help='do not generate guid list (guid.lst)')
+# Add ability to control protocol listing
+CommandLine.add_argument('-l', '--libraries',
+                   action = 'store_true',
+                   dest='libraries',
+                   help='do not generate libraries list (libraries.lst)')
+# Add ability to control debug output
+group = CommandLine.add_mutually_exclusive_group()
+group.add_argument('-n', '--nominal',
+                   action = 'store_true',
+                   dest='nominal',
+                   help='turn on nominal debug output')
 group.add_argument('-t', '--typical',
                    action = 'store_true',
                    dest='typical',
@@ -3115,10 +3158,10 @@ group.add_argument('-v', '--verbose',
                    action = 'store_true',
                    dest='verbose',
                    help='turn on verbose debug output')
-group.add_argument('-a', '--all',
+group.add_argument('-f', '--full',
                    action = 'store_true',
-                   dest='all',
-                   help='turn on all debug output')
+                   dest='full',
+                   help='turn on full debug output')
 group.add_argument('-d', '--debug',
                    dest='debug',
                    metavar='type',
@@ -3132,19 +3175,19 @@ CommandLine.add_argument('path',
                    type=str,
                    help='path to platform directory (default is current directory')
 # Parse the command line
-result = CommandLine.parse_args()
+CommandLineResults = CommandLine.parse_args()
 # Handle results of command line parsing
-if result.minimum:
+if CommandLineResults.nominal:
     DebugLevel = DEBUG_MINIMUM
-elif result.typical:
+elif CommandLineResults.typical:
     DebugLevel = DEBUG_TYPICAL
-elif result.verbose:
+elif CommandLineResults.verbose:
     DebugLevel = DEBUG_VERBOSE
-elif result.all:
+elif CommandLineResults.full:
     DebugLevel = DEBUG_ALL
 else:
-     DebugLevel = result.debug
-platform = os.getcwd() if not result.path else result.path
+     DebugLevel = CommandLineResults.debug
+platform = os.getcwd() if not CommandLineResults.path else CommandLineResults.path
 print(f'Processing {platform} as HPE platform directory')
 PlatformInfo(platform.replace('\\', '/'))
 
