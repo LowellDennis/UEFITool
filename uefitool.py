@@ -407,7 +407,6 @@ Pcds                    = {}
 Ppis                    = {}
 Protocols               = {}
 Guids                   = {}
-Libraries               = {}
 
 # Macro definitions used in expansion
 MacroVer                = 0
@@ -3102,6 +3101,13 @@ class PlatformInfo:
             with open(os.path.join(platform, 'source.lst'), 'w') as lst:
                 for source in self.__sortedKeys__(Sources):
                     lst.write(f"{source}\n")
+
+        # Generate library list (if indicated)
+        if not CommandLineResults.libraries:
+            print(f"Generating library.lst ...")
+            with open(os.path.join(platform, 'library.lst'), 'w') as lst:
+                for library in self.__sortedKeys__(INFs):
+                    lst.write(f"{library}\n")
 
         # Show file dumps (if indicated)
         if CommandLineResults.dump:
