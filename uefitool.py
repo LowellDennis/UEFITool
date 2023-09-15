@@ -264,7 +264,7 @@ reIncludes             = r'^' + reToEOL
 rePackages             = r'^' + reToEOL
 
 # Regular expression for matching lines with format "ppi [ = value ]"
-# Groups 1=>ppi 2=>optional value (Note: = only required when optional value is given)
+# Groups 1=>ppi 3=>optional value (Note: = only required when optional value is given)
 rePpis                 = r'^([^=\s]+)\s*(=\s*(' + reNext + r'))?$'
 
 # Regular expression for matching lines with format "protocol [ | [not] space.pcd ]"
@@ -2121,6 +2121,16 @@ class DECParser(UEFIParser):
     def match_reDefines(self, match):
         DSCParser.match_reDefines(self, match)
 
+    # Handle a match in the [Guids] section
+    # match: Results of regex match
+    # returns nothing
+    def match_reGuids(self, match):
+        global Guids
+        name = match.group(1)
+        guid = match.group(3)
+        if not name in Guids:
+            Guids[name] = guid
+
     # Handle a match in any of the PCD sections for rePcd
     # match: Results of regex match
     # returns nothing
@@ -2128,6 +2138,26 @@ class DECParser(UEFIParser):
         # See if we need to enter a sub-element
         if match.group(13) and match.group(13) == '{':
             self.EnterSubElement()  # Defaults are fine
+
+    # Handle a match in the [Ppis] section
+    # match: Results of regex match
+    # returns nothing
+    def match_rePpis(self, match):
+        global Ppis
+        ppi  = match.group(1)
+        guid = match.group(3)
+        if not ppi in Ppis:
+            Ppis[ppi] = guid
+
+    # Handle a match in the [Protocols] section
+    # match: Results of regex match
+    # returns nothing
+    def match_reProtocolsEqu(self, match):
+        global Protocols
+        protocol = match.group(1)
+        guid     = match.group(3)
+        if not protocol in Protocols:
+            Protocols[protocol] = guid
 
     ###########################################
     # Match handlers (only when inSubsection) #
@@ -3051,7 +3081,7 @@ class PlatformInfo:
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
-        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES, CommandLineResults, Apriori, Sources
+        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES, CommandLineResults, Apriori, Sources, Guids, Ppis, Protocols
 
         # Parse all of the files
         for name, handler in [('Args', self.__processArgs__), ('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
@@ -3096,18 +3126,39 @@ class PlatformInfo:
                             lst.write(f"{i+1}. {apriori}\n")
 
         # Generate sources list (if indicated)
-        if not CommandLineResults.source:
-            print(f"Generating source.lst ...")
-            with open(os.path.join(platform, 'source.lst'), 'w') as lst:
+        if not CommandLineResults.sources:
+            print(f"Generating sources.lst ...")
+            with open(os.path.join(platform, 'sources.lst'), 'w') as lst:
                 for source in self.__sortedKeys__(Sources):
                     lst.write(f"{source}\n")
 
         # Generate library list (if indicated)
         if not CommandLineResults.libraries:
             print(f"Generating library.lst ...")
-            with open(os.path.join(platform, 'library.lst'), 'w') as lst:
+            with open(os.path.join(platform, 'libraries.lst'), 'w') as lst:
                 for library in self.__sortedKeys__(INFs):
                     lst.write(f"{library}\n")
+
+        # Generate PPI list (if indicated)
+        if not CommandLineResults.ppis:
+            print(f"Generating ppis.lst ...")
+            with open(os.path.join(platform, 'ppis.lst'), 'w') as lst:
+                for ppi in self.__sortedKeys__(Ppis):
+                    lst.write(f"{ppi} = {Ppis[ppi]}\n")
+
+        # Generate Protocol list (if indicated)
+        if not CommandLineResults.protocols:
+            print(f"Generating protocols.lst ...")
+            with open(os.path.join(platform, 'protocols.lst'), 'w') as lst:
+                for protocol in self.__sortedKeys__(Protocols):
+                    lst.write(f"{protocol} = {Protocols[protocol]}\n")
+
+        # Generate Guid list (if indicated)
+        if not CommandLineResults.guids:
+            print(f"Generating guids.lst ...")
+            with open(os.path.join(platform, 'guids.lst'), 'w') as lst:
+                for guid in self.__sortedKeys__(Guids):
+                    lst.write(f"{guid} = {Guids[guid]}\n")
 
         # Show file dumps (if indicated)
         if CommandLineResults.dump:
@@ -3165,7 +3216,7 @@ CommandLine.add_argument('-m', '--macros',
 # Add ability to control source files listing
 CommandLine.add_argument('-s', '--source',
                    action = 'store_true',
-                   dest='source',
+                   dest='sources',
                    help='do not generate source file list (source.lst)')
 # Add ability to control PCD listing
 CommandLine.add_argument('-p', '--pcds',
