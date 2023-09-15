@@ -271,8 +271,8 @@ rePpis                 = r'^([^=\s]+)\s*(=\s*(' + reNext + r'))?$'
 # Groups 1=>protocol, 4=>optional not, 6=>optional space, 7=>optional pcd (Note: | only required when optional pcd is given)
 reProtocolsBar         = r'^([^\s\|]+)(\s*\|\s*((NOT)\s+)?(([^\.]+)\.)?(.+))?$'
 
-# Regular expression for matching lines with format "path'
-# Groups 1=>path
+# Regular Expression for matching lines with format "source1 [ source2 [ source3 [ source4 [ source5 [ source6 [ source7 [ source8 ]]]]]]
+# Groups: 1=>source1, 2->optional source2, 3=>optional source3, 4=>optional source4, 5=>optional source5, 6=>optional source6, 7=>optional source7, 8=>optional source8
 reSources              = r'^' + re1to8Items
 
 # Regular expression for matching lines with format "extension"
@@ -402,6 +402,12 @@ CommandLineResults      = None
 BasePath                = None
 Paths                   = []
 Apriori                 = {}
+Sources                 = {}
+Pcds                    = {}
+Ppis                    = {}
+Protocols               = {}
+Guids                   = {}
+Libraries               = {}
 
 # Macro definitions used in expansion
 MacroVer                = 0
@@ -587,7 +593,7 @@ class UEFIParser:
     #    This class provides handlers for all conditional directives (except include).
 
     def __init__(self, fileName, sectionsInfo, allowIncludes = False, allowConditionals = False, additionalDirectives = [], sections = [], process = True, outside = None):
-        global MacroVer
+        global MacroVer, Sources
         # Save given information
         self.fileName             = fileName
         self.sectionsInfo         = sectionsInfo
@@ -611,6 +617,8 @@ class UEFIParser:
         self.conditionHandled     = False                      # Indicates if current conditional has been handled
         self.conditionalStack     = []                         # For nesting of conditionals
         self.allowedConditionals  = []                         # Note If, Ifdef, and Ifndef are always allowed
+        if not fileName in Sources:
+            Sources[fileName] = fileName 
         self.__parse__()
 
     ###################
@@ -1930,6 +1938,23 @@ class INFParser(UEFIParser):
         AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
         DECs.append(file)
 
+    # Handle a match in the [Sources] section for rePackages
+    # match: Results of regex match
+    # returns nothing
+    def match_reSources(self, match):
+        global Sources
+        def AddSource(file):
+            path = os.path.join(os.path.dirname(self.fileName), file).replace('\\', '/')
+            if not path in Sources:
+                Sources[path] = path
+            AddReference(path, self.fileName, self.lineNumber)
+        files = match.group(1)
+        if '|' in files:
+            AddSource(files.split('|')[0].lstrip())
+        else:
+            for file in files.split(' '):
+                AddSource(file)
+
     #################
     # Dump handlers #
     #################
@@ -3027,7 +3052,7 @@ class PlatformInfo:
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
-        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES, CommandLineResults
+        global Lines, ARGs, DSCs, INFs, DECs, FDFs, BasePath, Macros, PCDs, SupportedArchitectures, SHOW_FILENAMES, CommandLineResults, Apriori, Sources
 
         # Parse all of the files
         for name, handler in [('Args', self.__processArgs__), ('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
@@ -3070,6 +3095,13 @@ class PlatformInfo:
                     with open(os.path.join(platform, f'apriori_{item.lower()}.lst'), 'w') as lst:
                         for i, apriori in enumerate(Apriori[item]):
                             lst.write(f"{i+1}. {apriori}\n")
+
+        # Generate sources list (if indicated)
+        if not CommandLineResults.source:
+            print(f"Generating source.lst ...")
+            with open(os.path.join(platform, 'source.lst'), 'w') as lst:
+                for source in self.__sortedKeys__(Sources):
+                    lst.write(f"{source}\n")
 
         # Show file dumps (if indicated)
         if CommandLineResults.dump:
