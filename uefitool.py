@@ -401,6 +401,7 @@ reVer                 = r'(VERSION|UI)\s+(.+)$'
 CommandLineResults      = None
 BasePath                = None
 Paths                   = []
+Apriori                 = {}
 
 # Macro definitions used in expansion
 MacroVer                = 0
@@ -2435,8 +2436,11 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # match: Results of regex match
     # returns nothing
     def match_reEndDesc(self, match):
+        global Apriori
         # End apriori list (if applicable)
         if self.apriori != None:
+            # Save in global variable
+            Apriori[self.apriori] = self.APRIORI[self.apriori]
             # Clear Apriori list
             if Debug(SHOW_SUBELEMENT_EXIT):
                 print(f'{self.lineNumber}:Exiting {self.apriori} apriori list')
@@ -3051,23 +3055,34 @@ class PlatformInfo:
         print(f'Total files processed:   {total}')
         print(f'Total lines processed:   {Lines}')
 
+        # Generate macro list (if indicated)
         if not CommandLineResults.macros:
             print(f"\nGenerating macros.lst ...")
             with open(os.path.join(platform, 'macros.lst'), 'w') as lst:
                 for macro in self.__sortedKeys__(Macros):
                     lst.write(f"{macro}={Macros[macro]}\n")
 
-        # Gather information from the files processed
-        for list in ['ARGs', 'DSCs', 'INFs', 'DECs', 'FDFs']:
-            print(f'\n{list[0:-1].upper()} Information:')
-            length = len(' Information:') + len(list[0:-1])
-            print('-'*length)
-            list = eval(list)
-            for item in list:
-                print(item)
-                if item == 'Intel/EagleStreamPlatform/EagleStreamFspPkg/EagleStreamFspPkg.fdf':
-                    pass
-                list[item].Dump()
+        # Generate apriori lists (if indicated)
+        if not CommandLineResults.apriori:
+            for item in ('PEI', 'DXE'):
+                if item in Apriori:
+                    print(f"Generating apriori_{item.lower()}.lst ...")
+                    with open(os.path.join(platform, f'apriori_{item.lower()}.lst'), 'w') as lst:
+                        for i, apriori in enumerate(Apriori[item]):
+                            lst.write(f"{i+1}. {apriori}\n")
+
+        # Show file dumps (if indicated)
+        if CommandLineResults.dump:
+            for list in ['ARGs', 'DSCs', 'INFs', 'DECs', 'FDFs']:
+                print(f'\n{list[0:-1].upper()} Information:')
+                length = len(' Information:') + len(list[0:-1])
+                print('-'*length)
+                list = eval(list)
+                for item in list:
+                    print(item)
+                    if item == 'Intel/EagleStreamPlatform/EagleStreamFspPkg/EagleStreamFspPkg.fdf':
+                        pass
+                    list[item].Dump()
 
     ##################
     # Public methods #
@@ -3144,6 +3159,11 @@ CommandLine.add_argument('-l', '--libraries',
                    action = 'store_true',
                    dest='libraries',
                    help='do not generate libraries list (libraries.lst)')
+# Add ability to control dump listing
+CommandLine.add_argument('--dump',
+                   action = 'store_true',
+                   dest='dump',
+                   help='dump all file results to screen')
 # Add ability to control debug output
 group = CommandLine.add_mutually_exclusive_group()
 group.add_argument('-n', '--nominal',
