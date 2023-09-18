@@ -3329,6 +3329,12 @@ PlatformInfo(platform.replace('\\', '/'))
 ###########
 ### TBD ###
 ###########
-# - Cross-reference items to make sure things are consistent?
-# - Generate files instead of output to the screen so it can be used by other utilites
-# - Fully check syntax of files!
+# - Cross-reference items to make sure things are consistent
+# - Right now assumes build with DEBUG ... need non-DEBUG option as well.
+# - Generate list of addresses.
+# - Fully check syntax of files ... right now syntax is assumed to be OK.
+# - What other usefule output could be generated?
+
+# Other ideas
+# - Tool that interfaces with data generated here that processes log files and converts GUIDs to actual human readable names.
+# - Tool that can compare two log files ignoring differences where drivers or resources are loaded at different addresses.
