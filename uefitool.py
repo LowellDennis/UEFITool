@@ -403,7 +403,7 @@ BasePath                = None
 Paths                   = []
 Apriori                 = {}
 Sources                 = {}
-Pcds                    = {}
+Pcds                    = {'dsc': {}, 'dec': {}}
 Ppis                    = {}
 Protocols               = {}
 Guids                   = {}
@@ -1761,6 +1761,17 @@ class DSCParser(UEFIParser):
         AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
         INFs.append(file)
 
+    # Handle a match in one of the PCD sections
+    # match: Results of regex match
+    # returns nothing
+    def match_rePcds(self, match):
+        global Pdcs
+        # Only process below if this matches a PCD default override
+        for i in range(1,13):
+            if (i < 5 and match.group(i) == None) or (i > 8 and not match.group(i) == None):
+                return
+        Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(4), match.group(6), match.group(8))
+
     #################
     # Dump handlers #
     #################
@@ -2128,16 +2139,21 @@ class DECParser(UEFIParser):
         global Guids
         name = match.group(1)
         guid = match.group(3)
-        if not name in Guids:
-            Guids[name] = guid
+        Guids[name] = guid              # Overrite OK
 
     # Handle a match in any of the PCD sections for rePcd
     # match: Results of regex match
     # returns nothing
     def match_rePcds(self, match):
+        global Pcds
         # See if we need to enter a sub-element
         if match.group(13) and match.group(13) == '{':
             self.EnterSubElement()  # Defaults are fine
+        # Only process below if this matches a PCD definition
+        for i in range(1,13):
+            if (i < 9 and match.group(i) == None) or (i > 8 and not match.group(i) == None):
+                return
+        Pcds['dec'][match.group(1)+'.'+match.group(2)] = (match.group(4), match.group(6), match.group(8))
 
     # Handle a match in the [Ppis] section
     # match: Results of regex match
@@ -2146,8 +2162,7 @@ class DECParser(UEFIParser):
         global Ppis
         ppi  = match.group(1)
         guid = match.group(3)
-        if not ppi in Ppis:
-            Ppis[ppi] = guid
+        Ppis[ppi] = guid                # Overrite OK
 
     # Handle a match in the [Protocols] section
     # match: Results of regex match
@@ -2156,8 +2171,7 @@ class DECParser(UEFIParser):
         global Protocols
         protocol = match.group(1)
         guid     = match.group(3)
-        if not protocol in Protocols:
-            Protocols[protocol] = guid
+        Protocols[protocol] = guid      # Overrite OK
 
     ###########################################
     # Match handlers (only when inSubsection) #
@@ -3134,7 +3148,7 @@ class PlatformInfo:
 
         # Generate library list (if indicated)
         if not CommandLineResults.libraries:
-            print(f"Generating library.lst ...")
+            print(f"Generating libraries.lst ...")
             with open(os.path.join(platform, 'libraries.lst'), 'w') as lst:
                 for library in self.__sortedKeys__(INFs):
                     lst.write(f"{library}\n")
@@ -3159,6 +3173,18 @@ class PlatformInfo:
             with open(os.path.join(platform, 'guids.lst'), 'w') as lst:
                 for guid in self.__sortedKeys__(Guids):
                     lst.write(f"{guid} = {Guids[guid]}\n")
+
+        # Generate PCD list (if indicated)
+        if not CommandLineResults.pcds:
+            print(f"Generating pdcs.lst ...")
+            with open(os.path.join(platform, 'pcds.lst'), 'w') as lst:
+                # Get PCD settings from DECs
+                for name in self.__sortedKeys__(Pcds['dec']):
+                    default, kind, id = Pcds['dec'][name]
+                    # See if there is an override in DSC file
+                    if name in Pcds['dsc']:
+                        default = Pcds['dsc'][name][1]
+                    lst.write(f"{name}|{default}|{kind}|{id}\n")
 
         # Show file dumps (if indicated)
         if CommandLineResults.dump:
