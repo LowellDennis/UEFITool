@@ -3333,7 +3333,7 @@ PlatformInfo(platform.replace('\\', '/'))
 # - Right now assumes build with DEBUG ... need non-DEBUG option as well.
 # - Generate list of addresses.
 # - Fully check syntax of files ... right now syntax is assumed to be OK.
-# - What other usefule output could be generated?
+# - What other useful output could be generated?
 
 # Other ideas
 # - Tool that interfaces with data generated here that processes log files and converts GUIDs to actual human readable names.
