@@ -58,6 +58,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * protocols.lst   - List of all of the Protocols used by the platform (and their values)
 * guids.lst       - List of all of the GUIDs used by the platform (and their values)
 * pdcs.lst        - List of all of the PCDs used by the platform (and the default value, their type, and their id)
+
  NOTE: Each of these can be turned off using command line options if desired.
 
 ### There is debug output available to be viewed as the files are processed ###
@@ -65,6 +66,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * -t or --typical - Nominal + shows sections, and macro definitions
 * -v or --verbose - Typical + shows individual lines in each section and how conditionals are evaluated
 * -f or --full    - Verbose + skipped lines
+s
  NOTE: verbose and full output are very long (even typical is pretty involved)
 
 ### Dumping all of the files ###
