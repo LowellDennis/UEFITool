@@ -3,7 +3,7 @@ HPE UEFI Utility
 
 ### What is this repository for? ###
 
-* Retreiving usful information from HPE UEFI files (DSC/DEC/INF/FDF)
+* Retrieves useful information from HPE UEFI files (DSC/DEC/INF/FDF)
 
 ### How do I get set up? ###
 
