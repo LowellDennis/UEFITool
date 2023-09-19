@@ -66,11 +66,12 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * -t or --typical - Nominal + shows sections, and macro definitions
 * -v or --verbose - Typical + shows individual lines in each section and how conditionals are evaluated
 * -f or --full    - Verbose + skipped lines
-s
+
  NOTE: verbose and full output are very long (even typical is pretty involved)
 
 ### Dumping all of the files ###
 --dump will dump what the tool collected read from each of the files
+
  NOTE: dump is HUGE
 
 ### Version History ###
