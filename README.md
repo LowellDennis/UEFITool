@@ -59,7 +59,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * guids.lst       - List of all of the GUIDs used by the platform (and their values)
 * pdcs.lst        - List of all of the PCDs used by the platform (and the default value, their type, and their id)
 
- NOTE: Each of these can be turned off using command line options if desired.
+  NOTE: Each of these can be turned off using command line options if desired.
 
 ### There is debug output available to be viewed as the files are processed ###
 * -n or --nominal - Shows each filename as it is being processed
@@ -67,12 +67,12 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * -v or --verbose - Typical + shows individual lines in each section and how conditionals are evaluated
 * -f or --full    - Verbose + skipped lines
 
- NOTE: verbose and full output are very long (even typical is pretty involved)
+  NOTE: verbose and full output are very long (even typical is pretty involved)
 
 ### Dumping all of the files ###
 --dump will dump what the tool collected read from each of the files
 
- NOTE: dump is HUGE
+  NOTE: dump is HUGE
 
 ### Version History ###
 | Version | Explanation                                                                            |
