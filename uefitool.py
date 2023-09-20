@@ -3151,7 +3151,12 @@ class PlatformInfo:
             print(f"Generating libraries.lst ...")
             with open(os.path.join(platform, 'libraries.lst'), 'w') as lst:
                 for library in self.__sortedKeys__(INFs):
-                    lst.write(f"{library}\n")
+                    ver = ""
+                    for item in INFs[library].DEFINES:
+                        if item['macro'] == "VERSION_STRING":
+                            ver = ' V' + item['value']
+                            break
+                    lst.write(f"{library}{ver}\n")
 
         # Generate PPI list (if indicated)
         if not CommandLineResults.ppis:
