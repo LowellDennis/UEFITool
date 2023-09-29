@@ -113,12 +113,12 @@ def ProcessCommandLine():
     gbl.CommandLineResults = CommandLine.parse_args()
     # Handle results of command line parsing
     if gbl.CommandLineResults.nominal:
-        gbl.DebugLevel = DEBUG_MINIMUM
+        SetDebug(DEBUG_MINIMUM)
     elif gbl.CommandLineResults.typical:
-        gbl.DebugLevel = DEBUG_TYPICAL
+        SetDebug(DEBUG_TYPICAL)
     elif gbl.CommandLineResults.verbose:
-        gbl.DebugLevel = DEBUG_VERBOSE
+        SetDebug(DEBUG_VERBOSE)
     elif gbl.CommandLineResults.full:
-        gbl.DebugLevel = DEBUG_ALL
+        SetDebug(DEBUG_ALL)
     else:
-        gbl.DebugLevel = gbl.CommandLineResults.debug
+        SetDebug(gbl.CommandLineResults.debug)
