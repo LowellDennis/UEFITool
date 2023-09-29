@@ -112,7 +112,6 @@ class UEFIParser:
         line    = re.sub(r'".*?"', replaceString, line)
         line    = re.sub(r"'.*?'", replaceString, line)
         # Remove any trailing comments
-        #pattern = """[ \t]\#.*|("(?:\\[\S\s]|[^"\\])*"|'(?:\\[\S\s]|[^'\\])*'|[\S\s][^"'#]*))"""
         line    = line.split('#')[0]
         line    = re.sub(r'[ \t]+;.+$', '', line)
         line    = re.sub(r'//[a-zA-Z0-9\*_ \t]+$', '', line)
@@ -472,8 +471,14 @@ class UEFIParser:
                 # Handle DEFINE lines anywhere
                 match = re.match(gbl.reDefine, line, re.IGNORECASE)
                 if match:
-                    value = match.group(3)
-                    self.DefineMacro(match.group(2), value if value != None else '')
+                    macro, value = (match.group(2), match.group(3))
+                    self.DefineMacro(macro, value if value != None else '')
+                    continue
+                # Handle DEFINES lines anywhere
+                match = re.match(gbl.reDefines, line, re.IGNORECASE)
+                if match:
+                    macro, value = (match.group(1), match.group(2))
+                    self.DefineMacro(macro, value if value != None else '')
                     continue
                 # Look for section change
                 if self.__handleNewSection__(line):
@@ -568,7 +573,7 @@ class UEFIParser:
                     # Try to interpret it
                     result = eval(result)
                 except:
-                    # Surround any un evalueated values with quotes and try one more time
+                    # Surround any un evaluated values with quotes and try one more time
                     items = result.split()
                     for i, item in enumerate(items):
                         if item[0] == '"':
@@ -734,8 +739,17 @@ class UEFIParser:
             print(f"{self.lineNumber}:else")
         if not "Else" in self.allowedConditionals:
             self.ReportError("Unexpected else directive encountered.")
-        # Now that else have been encountered only ifs and endif are allowed
-        self.allowedConditionals = ['Endif']
+        # Need to see if this is really an elseif
+        isElseIf     = False    # Assume not an elseif
+        elseIfResult = False    # Assume evaluation of elseif condition is false 
+        if condition :
+            if condition.split()[0] == 'if':
+                isElseIf     = True
+                elseIfResult = self.__evaluateCondition__('If', condition.replace('if', '', 1).lstrip())
+            else:
+                self.ReportError("Unsupported else conditional encountered.")
+        # Set allowedConditonals
+        self.allowedConditionals = ['Else', 'Endif'] if isElseIf else ['Endif']
         # Set processing flag apprpriately
         self.process = False    # Assume no processing
         if bool(self.conditionalStack):
@@ -744,6 +758,9 @@ class UEFIParser:
             # else already taken care of by setting it to False above
         else:
             self.process = not self.conditionHandled
+        # Handle elseif (if appropriate)
+        if self.process and not self.conditionHandled:
+            self.process = self.conditionHandled = elseIfResult
         if Debug(SHOW_CONDITIONAL_LEVEL):
             print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
 
