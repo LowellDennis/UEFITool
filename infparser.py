@@ -16,15 +16,15 @@ class INFParser(UEFIParser):
     ArgsBuildOptions   = (' ORO',         'BUILDOPTIONS',   ['tag', 'option', 'value'])
     ArgsDefines        = ('RO',           'DEFINES',        ['macro', 'value'])
     ArgsDepEx          = ('R',            'DEPEX',          ['depex'])
-    ArgsFeaturePcd     = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsFixedPcd       = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsFeaturePcd     = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
+    ArgsFixedPcd       = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
     ArgsGuids          = ('R X',          'GUIDS',          ['guid'])
     ArgsIncludes       = ('R',            'INCLUDES',       ['include'])
     ArgsLibraryClasses = ('R O',          'LIBRARYCLASSES', ['name', 'path'])
     ArgsPackages       = ('R',            'PACKAGES',       ['path'])
-    ArgsPatchPcd       = ('RR O O X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcd            = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdEx          = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPatchPcd       = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
+    ArgsPcd            = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
+    ArgsPcdEx          = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
     ArgsPpis           = ('R X',          'PPIS',           ['ppi'])
     ArgsProtocols      = ('R   OOO',      'PROTOCOLS',      ['protocol', 'not', 'pcdtokenspaceguidname', 'pcdname'])
     ArgsSources        = ('ROOOOOOO',     'SOURCES',        ['source', 'source2', 'source3', 'source4', 'source5', 'source6', 'source7', 'source8'])
@@ -34,15 +34,15 @@ class INFParser(UEFIParser):
                     'buildoptions':          (SHOW_BUILDOPTIONS,   'reBuildOptions',       ArgsBuildOptions),
                     'defines':               (SHOW_DEFINES,        'reDefines',            ArgsDefines),
                     'depex':                 (SHOW_DEPEX,          'reDepex',              ArgsDepEx),
-                    'featurepcd':            (SHOW_PCDS,           'rePcds',               ArgsFeaturePcd),
-                    'fixedpcd':              (SHOW_PCDS,           'rePcds',               ArgsFixedPcd),
+                    'featurepcd':            (SHOW_PCDS,           'rePcdOvr',             ArgsFeaturePcd),
+                    'fixedpcd':              (SHOW_PCDS,           'rePcdOvr',             ArgsFixedPcd),
                     'guids':                 (SHOW_GUIDS,          'reGuids',              ArgsGuids),
                     'includes':              (SHOW_INCLUDES,       'reIncludes',           ArgsIncludes),
                     'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',     ArgsLibraryClasses),
                     'packages':              (SHOW_PACKAGES,       'rePackages',           ArgsPackages),
-                    'patchpcd':              (SHOW_PCDS,           'rePcds',               ArgsPatchPcd),
-                    'pcd':                   (SHOW_PCDS,           'rePcds',               ArgsPcd),
-                    'pcdex':                 (SHOW_PCDS,           'rePcds',               ArgsPcdEx),
+                    'patchpcd':              (SHOW_PCDS,           'rePcdOvr',             ArgsPatchPcd),
+                    'pcd':                   (SHOW_PCDS,           'rePcdOvr',             ArgsPcd),
+                    'pcdex':                 (SHOW_PCDS,           'rePcdOvr',             ArgsPcdEx),
                     'ppis':                  (SHOW_PPIS,           'rePpis',               ArgsPpis),
                     'protocols':             (SHOW_PROTOCOLS,      'reProtocolsBar',       ArgsProtocols),
                     'sources':               (SHOW_SOURCES,        'reSources',            ArgsSources),
@@ -108,6 +108,13 @@ class INFParser(UEFIParser):
     ##################
     # Match handlers #
     ##################
+
+    # Handle a match in the [Packages] section for rePackages
+    # match: Results of regex match
+    # returns nothing
+    def match_rePcdOvr(self, match):
+        if match.group(4) and match.group(4) != '':
+            pass
 
     # Handle a match in the [Packages] section for rePackages
     # match: Results of regex match

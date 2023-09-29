@@ -8,51 +8,61 @@ from   debug      import *
 import globals    as     gbl
 from   uefiparser import UEFIParser
 
-# PcdsDynamicExVpd and PcdsDynamicVpd can have two possible option name sets
-# this:   object to which the PCD line belongs
-# match:  result of the regular expressuion match
-# line:   entire PCD line
-# returns correct option names for the PCD line in question
-def GetVpdOptionNames(this, match, line):
-    if match.group(4):
-        return ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value']
-    return     ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value']
-
 # PcdsDynamicExHii can have three possible option name sets
 # this:   object to which the PCD line belongs
 # match:  result of the regular expressuion match
 # line:   entire PCD line
 # returns correct option names for the PCD line in question
 def GetHiiOptionNames(this, match, line):
+    def IsAttributes(item):
+        for attr in ('NV', 'BS', 'RT', 'RO'):
+            item = item.replace(attr, '')
+        item = item.replace(',', '')
+        item = item.replace(' ', '')
+        return item == ''
+    # Handle case where PCD is part of a structure or array
     if '.' in match.group(2) or '[' in match.group(2):
-        return ['pcdtokenspaceguidname', 'pcdname', 'value', '', '', '', '']
-    if match.group(10) == '':
-        return ['pcdtokenspaceguidname', 'pcdname', 'title', 'guid', 'value', '', 'tags']
-    return     ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute']
+        return ['pcdtokenspaceguidname', 'pcdname', 'value', '', '', '', '', '']
+    if (match.group(13) and match.group(13) != '') or (match.group(11) != '' and not IsAttributes(match.group(11))):
+        # PCD is type VOID*
+        return ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'maximumdatumsize', 'hiidefaultvalue', 'hiiattribute']
+    # PCD is not type VOID*
+    return ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute', '']
     
+# PcdsDynamicExVpd and PcdsDynamicVpd can have two possible option name sets
+# this:   object to which the PCD line belongs
+# match:  result of the regular expressuion match
+# line:   entire PCD line
+# returns correct option names for the PCD line in question
+def GetVpdOptionNames(this, match, line):
+    # See if the regular expression matched 7 groups
+    if match.group(7):
+        # If it did, the PCD type was VOID*
+        return ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value']
+    # The PCD type was not VOID*
+    return     ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value']
+
 # Class for handling UEFI DSC files
 class DSCParser(UEFIParser):
-    # Section Arguments         R/O              List              Names
-    ArgsBuildOptions          = (' ORO',         'BUILDOPTIONS',   ['tag', 'option', 'value'])
-    ArgsComponents            = ('R',            'COMPONENTS',     ['inf'])
-    ArgsDefaultStores         = ('R R',          'DEFAULTSTORES',  ['value', 'name'])
-    ArgsDefines               = [('RO',          'DEFINES',        ['macro', 'value']),     # reDefines
-                                 ('ORO',         'DEFINES',        ['macro', 'value'])]     # reEdkGlobals
-    ArgsLibraryClasses        = ('R R',          'LIBRARYCLASSES', ['name', 'path'])
-    ArgsPackages              = ('R',            'PACKAGES',       ['path'])
-    ArgsPcdsDynamic           = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsDynamicDefault    = ('RR R O X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsDynamicEx         = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsDynamicExDefault  = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsDynamicExHii      = ('RR R O O O O', 'PCDS',           GetHiiOptionNames)
-    ArgsPcdsDynamicExVpd      = ('RR R O O X X', 'PCDS',           GetVpdOptionNames)
-    ArgsPcdsDynamicHii        = ('RR R R R O O', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue'])
-    ArgsPcdsDynamicVpd        = ('RR R O O X X', 'PCDS',           GetVpdOptionNames)
-    ArgsPcdsFeatureFlag       = ('RR O X X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value'])
-    ArgsPcdsFixedatBuild      = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsPatchableInModule = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsSkuIds                = ('RRO',          'SKUIDS',         ['value', 'skuid', 'parent'])
-    ArgsUserExtensions        = ('R',            'USEREXTENSIONS', ['ext'])
+    # Section Arguments         R/O               List              Names
+    ArgsBuildOptions          = (' ORO',          'BUILDOPTIONS',   ['tag', 'option', 'value'])
+    ArgsComponents            = ('R',             'COMPONENTS',     ['inf'])
+    ArgsDefaultStores         = ('R R',           'DEFAULTSTORES',  ['value', 'name'])
+    ArgsDefines               = [('RO',           'DEFINES',        ['macro', 'value']),     # reDefines
+                                 ('ORO',          'DEFINES',        ['macro', 'value'])]     # reEdkGlobals
+    ArgsLibraryClasses        = ('R R',           'LIBRARYCLASSES', ['name', 'path'])
+    ArgsPackages              = ('R',             'PACKAGES',       ['path'])
+    ArgsPcdsDynamic           = ('RR R O O',      'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicDefault    = ('RR R O O',      'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicEx         = ('RR R O O',      'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicExDefault  = ('RR O O O',      'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicHii        = ('RRR O O O O O', 'PCDS',           GetHiiOptionNames)
+    ArgsPcdsDynamicVpd        = ('RRRO O O',      'PCDS',           GetVpdOptionNames)
+    ArgsPcdsFeatureFlag       = ('RRR',           'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value'])
+    ArgsPcdsFixedatBuild      = ('RR R O O',      'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsPatchableInModule = ('RR R O O',      'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsSkuIds                = ('RRO',           'SKUIDS',         ['value', 'skuid', 'parent'])
+    ArgsUserExtensions        = ('R',             'USEREXTENSIONS', ['ext'])
     #                Section                  Debug                 regEx(s)                      Arguments
     DSCSections = { 'buildoptions':          (SHOW_BUILDOPTIONS,   'reBuildOptions',              ArgsBuildOptions),
                     'components':            (SHOW_COMPONENTS,     'reComponents',                ArgsComponents),
@@ -60,17 +70,17 @@ class DSCParser(UEFIParser):
                     'defines':               (SHOW_DEFINES,        ['reDefines', 'reEdkGlobals'], ArgsDefines),
                     'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',            ArgsLibraryClasses),
                     'packages':              (SHOW_PACKAGES,       'rePackages',                  ArgsPackages),
-                    'pcdsdynamic':           (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamic),
-                    'pcdsdynamicdefault':    (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicDefault),
-                    'pcdsdynamicex':         (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicEx),
-                    'pcdsdynamicexdefault':  (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicExDefault),
-                    'pcdsdynamicexhii':      (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicExHii),
-                    'pcdsdynamicexvpd':      (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicExVpd),
-                    'pcdsdynamichii':        (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicHii),
-                    'pcdsdynamicvpd':        (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicVpd),
-                    'pcdsfeatureflag':       (SHOW_PCDS,           'rePcds',                      ArgsPcdsFeatureFlag),
-                    'pcdsfixedatbuild':      (SHOW_PCDS,           'rePcds',                      ArgsPcdsFixedatBuild),
-                    'pcdspatchableinmodule': (SHOW_PCDS,           'rePcds',                      ArgsPcdsPatchableInModule),
+                    'pcdsdynamic':           (SHOW_PCDS,           'rePcdReDef',                  ArgsPcdsDynamic),
+                    'pcdsdynamicdefault':    (SHOW_PCDS,           'rePcdReDef',                  ArgsPcdsDynamicDefault),
+                    'pcdsdynamicex':         (SHOW_PCDS,           'rePcdReDef',                  ArgsPcdsDynamicEx),
+                    'pcdsdynamicexdefault':  (SHOW_PCDS,           'rePcdReDef',                  ArgsPcdsDynamicExDefault),
+                    'pcdsdynamicexhii':      (SHOW_PCDS,           'rePcdHii',                    ArgsPcdsDynamicHii),
+                    'pcdsdynamicexvpd':      (SHOW_PCDS,           'rePcdVpd',                    ArgsPcdsDynamicVpd),
+                    'pcdsdynamichii':        (SHOW_PCDS,           'rePcdHii',                    ArgsPcdsDynamicHii),
+                    'pcdsdynamicvpd':        (SHOW_PCDS,           'rePcdVpd',                    ArgsPcdsDynamicVpd),
+                    'pcdsfeatureflag':       (SHOW_PCDS,           'rePcdVal',                    ArgsPcdsFeatureFlag),
+                    'pcdsfixedatbuild':      (SHOW_PCDS,           'rePcdReDef',                  ArgsPcdsFixedatBuild),
+                    'pcdspatchableinmodule': (SHOW_PCDS,           'rePcdReDef',                  ArgsPcdsPatchableInModule),
                     'skuids':                (SHOW_SKUIDS,         'reSkuIds',                    ArgsSkuIds),
                     'userextensions':        (SHOW_USEREXTENSIONS, 'reUserExtensions',            ArgsUserExtensions),
     }
@@ -198,12 +208,48 @@ class DSCParser(UEFIParser):
     # Handle a match in one of the PCD sections
     # match: Results of regex match
     # returns nothing
-    def match_rePcds(self, match):
-        # Only process below if this matches a PCD default override
-        for i in range(1,13):
-            if (i < 5 and match.group(i) == None) or (i > 8 and not match.group(i) == None):
-                return
+    def match_rePcdReDef(self, match):
+        # Can only get here if group1 and group2 are defined
+        # Don't go on unless at lease group4 is defined
+        if match.group(4) == None or match.group(4) == '':
+            return
         gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(4), match.group(6), match.group(8))
+
+    # Handle a match in one of the PCD sections
+    # match: Results of regex match
+    # returns nothing
+    def match_rePcdHii(self, match):
+        # Can only get here if group1, group2, and group3 are defined
+        # Don't go in if group2 is a structure (has a '.' in it) or an a array (has a '[' in it)
+        #if '.' in match.group(2) or '[' in match.group(2):
+        #    return
+        # Don't go on if group5, group7, group9, group11, or group13 are defined
+        for i in range(5, 15, 2):
+            if match.group(i) and match.group(i) != '':
+                return
+        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(3), None, None)
+
+    # Handle a match in one of the PCD sections
+    # match: Results of regex match
+    # returns nothing
+    def match_rePcdVal(self, match):
+        # Can only get here if group1, group2, and group3 are defined
+        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(3), None, None)
+
+    # Handle a match in one of the PCD sections
+    # match: Results of regex match
+    # returns nothing
+# Groups 1=>space, 2=>pcd, 3=>item1, 5=>optional item2, 7=>optional item3, 9=>optional item4, 11=>optional item5, 13=>optional item6
+    def match_rePcdVpd(self, match):
+        # Can only get here if group1, group2, and group3 are defined
+        # Don't go in if group2 is a structure (has a '.' in it) or an a array (has a '[' in it)
+        #if '.' in match.group(2) or '[' in match.group(2):
+        #    return
+        # Don't go on if group5, or group7 is defined
+        for i in range(5, 9, 2):
+            if match.group(i) and match.group(i) != '':
+                return
+        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(3), None, None)
 
     #################
     # Dump handlers #

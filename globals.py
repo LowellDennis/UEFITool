@@ -148,12 +148,30 @@ reLibraryClasses       = r'^' + re1Bar
 # Groups 1=>package
 rePackages             = r'^' + reToEOL
 
-# Regular expression for matching lines with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
-# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional sub-element marker
+# Regular expression for matching lines with format "space.pcd | value [ | type [ | size ]]
+# Groups 1=>space, 2=>pcd, 4=>value, 6=>optional type, 8=>optional size
 reStart                = r'^([^\.]+)\.([^\s\|]+)'
-reVal                  = r'\s*\|\s*(L?\"[^\"]+\"|\{[0-9A-Fa-f, ]+\{[0-9A-Fa-f, ]+\}\}|\{[^\|\{]+)'
+reVal                  = r'\s*\|\s*(L?\"[^\"]+\"|\{[0-9A-Fa-f, ]+\{[0-9A-Fa-f, ]+\}\}|\{?[^\|\{]*)'
 reItem                 = r'\s*\|\s*([^\|\{]*)'
-rePcds                 = fr'{reStart}{reVal}({reItem}({reItem}({reItem}({reItem}?)?)?)?)?)?' + r'\s*(\{)?$'
+rePcdReDef             = fr'{reStart}({reVal}({reItem}({reItem})?)?)?$'
+
+# Regular expression for matching lines with format "space.pcd | item1 [ | item2 [ | item3 [ | item4 [ | item5 [ | item6 ]]]]]
+# Groups 1=>space, 2=>pcd, 3=>item1, 5=>optional item2, 7=>optional item3, 9=>optional item4, 11=>optional item5, 13=>optional item6
+# Note: Situation              Item1  Item2 Item3   Item4 Item5       Item6
+#       . or [] in pcd         value  none  none    none  none        none
+#       PCD type is VOID*      name   guid  offset  size  value       attributes
+#       PCD type is not VOID*  name   guid  offset  value attributes  none
+rePcdHii              = fr'{reStart}{reVal}({reItem}({reItem}({reVal}({reVal}({reItem})?)?)?))??$'
+
+# Regular expression for matching lines with format "space.pcd | value
+# Groups 1=>space, 2=>pcd, 3=>value
+rePcdVal               = fr'{reStart}{reVal}$'
+
+# Regular expression for matching lines with format "space.pcd | offset [ | item1 [ | item2 ]]
+# Groups 1=>space, 2=>pcd, 3=>offset, 5=>optional item1, 7=>optional item2
+# Note: If PCD type is VOID*, item1 is size,  item2 is value,;
+#       Otherwise             item1 is value, item2 is None!
+rePcdVpd              = fr'{reStart}({reItem}({reVal}({reVal})?)?)?$'
 
 # Regular expression for matching lines with format "value | skuid [ | [parent]]"
 # Groups 1=>value, 2=>skuid, 4=>optional parent
@@ -182,9 +200,12 @@ reBinariesBar          = r'^' + re1to5Bars
 # Groups 1=>dependency
 reDepex                = r'^' + reToEOL
 
-# Regular expression for matching lines with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
-# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=?optional item5
-# rePcds same as above
+# Regular expression for matching lines with format "space.pcd [ | value [ | item ]]
+# Groups 1=>space, 2=>pcd, 4=>value, 6=>optional item
+# Note: Situation                                                 Item
+#       PatchPcd under Binaries and Item is a hexadecimal number  offset
+#       All other situations                                      flagexpression
+rePcdOvr              = fr'{reStart}({reVal}({reItem})?)?$'
 
 # Regular expression for matching lines with format "guid = value"
 # Groups 1=>guid, 3=>optional value
@@ -233,9 +254,9 @@ reSources              = r'^' + re1to8Items
 # Groups 1=>name, 3=>optional path
 # reLibraryClasses same as above
 
-# Regular expression for matching lines with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
-# Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional sub-element start marker
-# rePcds same as above
+# Regular expression for matching lines with format "space.pcd | value [ | type [ | size ]] [ { ]
+# Groups 1=>space, 2=>pcd, 4=>value, 6=>optional type, 8=>optional size 9=> optional sub-element start marker
+rePcdDef               = fr'{reStart}({reVal}({reItem}({reItem})?)?)?' + r'\s*(\{)?$'
 
 # Regular expression for matching lines with format "ppi = value"
 # Groups 1=>ppi, 3=>optional value

@@ -16,11 +16,11 @@ class DECParser(UEFIParser):
     ArgsGuids                 = ('R R',          'GUIDS',          ['guid'])
     ArgsIncludes              = ('R',            'INCLUDES',       ['include'])
     ArgsLibraryClasses        = ('R R',          'LIBRARYCLASSES', ['name', 'path'])
-    ArgsPcdsDynamic           = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsDynamicEx         = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsFeatureFlag       = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsFixedatBuild      = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsPatchableInModule = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamic           = ('RR R O O',     'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsDynamicEx         = ('RR R O O',     'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsFeatureFlag       = ('RR R O O',     'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsFixedAtBuild      = ('RR R O O',     'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
+    ArgsPcdsPatchableInModule = ('RR R O O',     'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
     ArgsPpis                  = ('R R',          'PPIS',           ['ppi'])
     ArgsProtocols             = ('R R',          'PROTOCOLS',      ['protocol'])
     ArgsUserExtensions        = ('R',            'USEREXTENSIONS', ['ext'])
@@ -31,11 +31,11 @@ class DECParser(UEFIParser):
                     'guids':                 (SHOW_GUIDS,          'reGuids',              ArgsGuids),
                     'includes':              (SHOW_INCLUDES,       'reIncludes',           ArgsIncludes),
                     'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',     ArgsLibraryClasses),
-                    'pcdsdynamic':           (SHOW_PCDS,           'rePcds',               ArgsPcdsDynamic),
-                    'pcdsdynamicex':         (SHOW_PCDS,           'rePcds',               ArgsPcdsDynamicEx),
-                    'pcdsfeatureflag':       (SHOW_PCDS,           'rePcds',               ArgsPcdsFeatureFlag),
-                    'pcdsfixedatbuild':      (SHOW_PCDS,           'rePcds',               ArgsPcdsFixedatBuild),
-                    'pcdspatchableinmodule': (SHOW_PCDS,           'rePcds',               ArgsPcdsPatchableInModule),
+                    'pcdsdynamic':           (SHOW_PCDS,           'rePcdDef',             ArgsPcdsDynamic),
+                    'pcdsdynamicex':         (SHOW_PCDS,           'rePcdDef',             ArgsPcdsDynamicEx),
+                    'pcdsfeatureflag':       (SHOW_PCDS,           'rePcdDef',             ArgsPcdsFeatureFlag),
+                    'pcdsfixedatbuild':      (SHOW_PCDS,           'rePcdDef',             ArgsPcdsFixedAtBuild),
+                    'pcdspatchableinmodule': (SHOW_PCDS,           'rePcdDef',             ArgsPcdsPatchableInModule),
                     'ppis':                  (SHOW_PPIS,           'rePpis',               ArgsPpis),
                     'protocols':             (SHOW_PROTOCOLS,      'reProtocolsEqu',       ArgsProtocols),
                     'userextensions':        (SHOW_USEREXTENSIONS, 'reUserExtensions',     ArgsUserExtensions),
@@ -105,17 +105,16 @@ class DECParser(UEFIParser):
         guid = match.group(3)
         gbl.Guids[name] = guid              # Overrite OK
 
-    # Handle a match in any of the PCD sections for rePcd
+    # Handle a match in any of the PCD sections for rePcdDef
     # match: Results of regex match
     # returns nothing
-    def match_rePcds(self, match):
+    def match_rePcdDef(self, match):
         # See if we need to enter a sub-element
-        if match.group(13) and match.group(13) == '{':
+        if match.group(9) and match.group(9) == '{':
             self.EnterSubElement()  # Defaults are fine
-        # Only process below if this matches a PCD definition
-        for i in range(1,13):
-            if (i < 9 and match.group(i) == None) or (i > 8 and not match.group(i) == None):
-                return
+        # Only process below if this matches a PCD  redefinition
+        if match.group(4) == None or match.group(4) == '':
+            return
         gbl.Pcds['dec'][match.group(1)+'.'+match.group(2)] = (match.group(4), match.group(6), match.group(8))
 
     # Handle a match in the [Ppis] section
