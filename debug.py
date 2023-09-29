@@ -75,6 +75,13 @@ DEBUG_ALL                    = 0xFFFFFFFFFFFFFFFF
 # Set the debug level
 DebugLevel                   = DEBUG_NONE
 
+# Set the debug output level
+# level: Debug ouput level to be assigned
+# retuns nothing
+def SetDebug(level):
+    global DebugLevel
+    DebugLevel = level
+
 # Debug output checker
 # check: Debug item to check
 # retuns True if item is enabled, False otherwise
