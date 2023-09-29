@@ -113,9 +113,7 @@ class INFParser(UEFIParser):
     # match: Results of regex match
     # returns nothing
     def match_rePackages(self, match):
-        file = match.group(1)
-        gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
-        gbl.DECs.append(file)
+        DSCParser.match_rePackages(self, match)
 
     # Handle a match in the [Sources] section for rePackages
     # match: Results of regex match

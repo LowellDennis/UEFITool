@@ -144,10 +144,16 @@ reEdkGlobals           = reDefine.replace('DEFINE', 'EDK_GLOBAL')
 # Groups 1=>name, 3=>optional path
 reLibraryClasses       = r'^' + re1Bar
 
+# Regular expression for matching lines with format "package"
+# Groups 1=>package
+rePackages             = r'^' + reToEOL
+
 # Regular expression for matching lines with format "group.pcd[ | item1 [ | item2 [ | item3 [ | item4 [| item5]]]]]"
 # Groups 1=>space, 2=>pcd, 4=>optional item1, 6=>optional item2, 8=>optional item3, 10=>optional item4, 12=>optional item5, 13=>optional sub-element marker
-reItem                 = r'\s*\|\s*(L?\"[^\"]+\"|\{[^\}]+\}|[^\s\|\{}]+)'
-rePcds                 = fr'^([^\.]+)\.([^\s\|]+)({reItem}({reItem}({reItem}({reItem}({reItem}?)?)?)?)?)?' + r'\s*(\{)?$'
+reStart                = r'^([^\.]+)\.([^\s\|]+)'
+reVal                  = r'\s*\|\s*(L?\"[^\"]+\"|\{[0-9A-Fa-f, ]+\{[0-9A-Fa-f, ]+\}\}|\{[^\|\{]+)'
+reItem                 = r'\s*\|\s*([^\|\{]*)'
+rePcds                 = fr'{reStart}{reVal}({reItem}({reItem}({reItem}({reItem}?)?)?)?)?)?' + r'\s*(\{)?$'
 
 # Regular expression for matching lines with format "value | skuid [ | [parent]]"
 # Groups 1=>value, 2=>skuid, 4=>optional parent
@@ -188,9 +194,9 @@ reGuids                = r'^([^=\s]+)\s*(=\s*(' + reNext + r'))?$'
 # Groups 1=>include
 reIncludes             = r'^' + reToEOL
 
-# Regular expression for matching lines with format "include"
-# Groups 1=>include
-rePackages             = r'^' + reToEOL
+# Regular expression for matching lines with format "package"
+# Groups 1=>package
+# rePackages same as above
 
 # Regular expression for matching lines with format "ppi [ = value ]"
 # Groups 1=>ppi 3=>optional value (Note: = only required when optional value is given)
@@ -414,16 +420,6 @@ def GetSection(section):
         value += sep + sect
         sep   = '.'
     return value + ']'
-
-# PcdsDynamicExVpd and PcdsDynamicVpd can have two possible option name sets
-# this:   object to which the PCD line belongs
-# match:  result of the regular expressuion match
-# line:   entire PCD line
-# returns correct option names for the PCD line in question
-def GetVpdOptionNames(this, match, line):
-    if match.group(4):
-        return ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value']
-    return     ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value']
 
 # Looks for a macro definition in a DSC file
 # dsc:   DSC file in which to search

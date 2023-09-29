@@ -8,6 +8,28 @@ from   debug      import *
 import globals    as     gbl
 from   uefiparser import UEFIParser
 
+# PcdsDynamicExVpd and PcdsDynamicVpd can have two possible option name sets
+# this:   object to which the PCD line belongs
+# match:  result of the regular expressuion match
+# line:   entire PCD line
+# returns correct option names for the PCD line in question
+def GetVpdOptionNames(this, match, line):
+    if match.group(4):
+        return ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'maximumdatumsize', 'value']
+    return     ['pcdtokenspaceguidname', 'pcdname', 'vpdoffset', 'value']
+
+# PcdsDynamicExHii can have three possible option name sets
+# this:   object to which the PCD line belongs
+# match:  result of the regular expressuion match
+# line:   entire PCD line
+# returns correct option names for the PCD line in question
+def GetHiiOptionNames(this, match, line):
+    if '.' in match.group(2) or '[' in match.group(2):
+        return ['pcdtokenspaceguidname', 'pcdname', 'value', '', '', '', '']
+    if match.group(10) == '':
+        return ['pcdtokenspaceguidname', 'pcdname', 'title', 'guid', 'value', '', 'tags']
+    return     ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute']
+    
 # Class for handling UEFI DSC files
 class DSCParser(UEFIParser):
     # Section Arguments         R/O              List              Names
@@ -17,14 +39,15 @@ class DSCParser(UEFIParser):
     ArgsDefines               = [('RO',          'DEFINES',        ['macro', 'value']),     # reDefines
                                  ('ORO',         'DEFINES',        ['macro', 'value'])]     # reEdkGlobals
     ArgsLibraryClasses        = ('R R',          'LIBRARYCLASSES', ['name', 'path'])
+    ArgsPackages              = ('R',            'PACKAGES',       ['path'])
     ArgsPcdsDynamic           = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
     ArgsPcdsDynamicDefault    = ('RR R O X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
     ArgsPcdsDynamicEx         = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
     ArgsPcdsDynamicExDefault  = ('RR O O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
-    ArgsPcdsDynamicExHii      = ('RR R R R O O', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue', 'hiiattribute'])
-    ArgsPcdsDynamicExVpd      = ('RR R O O X X', 'PCDS',           gbl.GetVpdOptionNames)
+    ArgsPcdsDynamicExHii      = ('RR R O O O O', 'PCDS',           GetHiiOptionNames)
+    ArgsPcdsDynamicExVpd      = ('RR R O O X X', 'PCDS',           GetVpdOptionNames)
     ArgsPcdsDynamicHii        = ('RR R R R O O', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'hiidefaultvalue'])
-    ArgsPcdsDynamicVpd        = ('RR R O O X X', 'PCDS',           gbl.GetVpdOptionNames)
+    ArgsPcdsDynamicVpd        = ('RR R O O X X', 'PCDS',           GetVpdOptionNames)
     ArgsPcdsFeatureFlag       = ('RR O X X X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value'])
     ArgsPcdsFixedatBuild      = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
     ArgsPcdsPatchableInModule = ('RR R O O X X', 'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'datumtype', 'maximumdatumsize'])
@@ -36,6 +59,7 @@ class DSCParser(UEFIParser):
                     'defaultstores':         (SHOW_DEFAULTSTORES,  'reDefaultStores',             ArgsDefaultStores),
                     'defines':               (SHOW_DEFINES,        ['reDefines', 'reEdkGlobals'], ArgsDefines),
                     'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',            ArgsLibraryClasses),
+                    'packages':              (SHOW_PACKAGES,       'rePackages',                  ArgsPackages),
                     'pcdsdynamic':           (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamic),
                     'pcdsdynamicdefault':    (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicDefault),
                     'pcdsdynamicex':         (SHOW_PCDS,           'rePcds',                      ArgsPcdsDynamicEx),
@@ -63,6 +87,7 @@ class DSCParser(UEFIParser):
         self.DEFAULTSTORES  = []
         self.DEFINES        = []
         self.LIBRARYCLASSES = []
+        self.PACKAGES       = []
         self.PCDS           = []
         self.SKUIDS         = []
         self.USEREXTENSIONS = []
@@ -161,6 +186,14 @@ class DSCParser(UEFIParser):
         file = match.group(3).replace('"', '')
         gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
         gbl.INFs.append(file)
+
+    # Handle a match in the [Packages] section for rePackages
+    # match: Results of regex match
+    # returns nothing
+    def match_rePackages(self, match):
+        file = match.group(1)
+        gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
+        gbl.DECs.append(file)
 
     # Handle a match in one of the PCD sections
     # match: Results of regex match

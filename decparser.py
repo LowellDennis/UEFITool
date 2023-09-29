@@ -141,19 +141,17 @@ class DECParser(UEFIParser):
     # Handle a match in the <Packages> sub-element
     # match: Results of regex match
     # returns nothing
-    def matchPackages(self, match):
+    def match_rePackages(self, match):
         # Only allow this section handler if in a sub-element
         if not self.inSubsection:
             self.ReportError('section packages cannot be used outside of braces')
             return
-        file = match.group(1)
-        gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
-        gbl.DECs.append(self.fileName)
+        DSCParser.match_rePackages(self.match)
 
     # Handle a match in the <HeaderFiles> sub-element
     # match: Results of regex match
     # returns nothing
-    def matchHeaderFiles(self, match):
+    def match_reHeaderFiles(self, match):
         # Only allow this section handler if in a sub-element
         if not self.inSubsection:
             self.ReportError('section headerfiles cannot be used outside of braces')
