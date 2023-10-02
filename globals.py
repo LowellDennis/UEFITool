@@ -151,7 +151,7 @@ rePackages             = r'^' + reToEOL
 # Regular expression for matching lines with format "space.pcd | value [ | type [ | size ]]
 # Groups 1=>space, 2=>pcd, 4=>value, 6=>optional type, 8=>optional size
 reStart                = r'^([^\.]+)\.([^\s\|]+)'
-reVal                  = r'\s*\|\s*(L?\"[^\"]+\"|\{[0-9A-Fa-f, ]+\{[0-9A-Fa-f, ]+\}\}|\{?[^\|\{]*)'
+reVal                  = r'\s*\|\s*(L?\"[^\"]+\"|\{GUID\(\{[0-9A-FX, ]+\{[0-9A-FX, ]+\}\}\)\}|\{[0-9A-FX, ]+\{[0-9A-FX, ]+\}\}|\{?[^\|\{]*)'
 reItem                 = r'\s*\|\s*([^\|\{]*)'
 rePcdReDef             = fr'{reStart}({reVal}({reItem}({reItem})?)?)?$'
 

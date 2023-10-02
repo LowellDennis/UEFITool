@@ -134,7 +134,7 @@ class UEFIParser:
         items = line.split(maxsplit=1)
         directive = items[0][1:].lower()
         # Make sure directive is allowed
-        if (self.allowIncludes and directive == 'include') or (self.allowConditionals and directive in self.ConditionalDirectives) or (directive in self.allowedDirectives):
+        if (self.allowIncludes and directive == 'include') or (self.allowConditionals and directive in self.ConditionalDirectives) or (directive in self.additionalDirectives):
             # Make sure directive has a handler
             handler = getattr(self, f"directive_{directive}", None)
             if handler and callable(handler):

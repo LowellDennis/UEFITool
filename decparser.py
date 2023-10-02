@@ -60,7 +60,7 @@ class DECParser(UEFIParser):
         self.PACKAGES       = []
         self.HEADERFILES    = []
         # Call constructor for parent class
-        super().__init__(fileName, self.DECSections)
+        super().__init__(fileName, self.DECSections, False, True)
 
     ###################
     # Private methods #
@@ -142,17 +142,17 @@ class DECParser(UEFIParser):
     # returns nothing
     def match_rePackages(self, match):
         # Only allow this section handler if in a sub-element
-        if not self.inSubsection:
+        if not self.subElementState == 1:
             self.ReportError('section packages cannot be used outside of braces')
             return
-        DSCParser.match_rePackages(self.match)
+        DSCParser.match_rePackages(self, match)
 
     # Handle a match in the <HeaderFiles> sub-element
     # match: Results of regex match
     # returns nothing
     def match_reHeaderFiles(self, match):
         # Only allow this section handler if in a sub-element
-        if not self.inSubsection:
+        if not self.subElementState == 1:
             self.ReportError('section headerfiles cannot be used outside of braces')
 
     #################
