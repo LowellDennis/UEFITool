@@ -133,6 +133,9 @@ class UEFIParser:
         # Isolate directive
         items = line.split(maxsplit=1)
         directive = items[0][1:].lower()
+        # Change elif directive to elseif!
+        if directive == 'elif':
+            directive = 'elseif'
         # Make sure directive is allowed
         if (self.allowIncludes and directive == 'include') or (self.allowConditionals and directive in self.ConditionalDirectives) or (directive in self.additionalDirectives):
             # Make sure directive has a handler
@@ -474,12 +477,14 @@ class UEFIParser:
                     macro, value = (match.group(2), match.group(3))
                     self.DefineMacro(macro, value if value != None else '')
                     continue
-                # Handle DEFINES lines anywhere
+                # Handle EQUATE lines anywhere
                 match = re.match(gbl.reDefines, line, re.IGNORECASE)
                 if match:
                     macro, value = (match.group(1), match.group(2))
-                    self.DefineMacro(macro, value if value != None else '')
-                    continue
+                    # Do not include DATA = { lines!
+                    if not (macro == 'DATA' and value == '{'):
+                        self.DefineMacro(macro, value if value != None else '')
+                        continue
                 # Look for section change
                 if self.__handleNewSection__(line):
                     continue
@@ -734,35 +739,30 @@ class UEFIParser:
     # condition: Should be empty
     # returns nothing
     def directive_else(self, condition):
-        # Make sure else is allowed at this time
-        if Debug(SHOW_CONDITIONAL_DIRECTIVES):
-            print(f"{self.lineNumber}:else")
-        if not "Else" in self.allowedConditionals:
-            self.ReportError("Unexpected else directive encountered.")
-        # Need to see if this is really an elseif
-        isElseIf     = False    # Assume not an elseif
-        elseIfResult = False    # Assume evaluation of elseif condition is false 
-        if condition :
-            if condition.split()[0] == 'if':
-                isElseIf     = True
-                elseIfResult = self.__evaluateCondition__('If', condition.replace('if', '', 1).lstrip())
-            else:
-                self.ReportError("Unsupported else conditional encountered.")
-        # Set allowedConditonals
-        self.allowedConditionals = ['Else', 'Endif'] if isElseIf else ['Endif']
-        # Set processing flag apprpriately
-        self.process = False    # Assume no processing
-        if bool(self.conditionalStack):
-            if self.conditionalStack[-1][0]:
-                self.process = not self.conditionHandled
-            # else already taken care of by setting it to False above
+        # See if this is really an elseif
+        if condition and condition.startswith('if '):
+            self.directive_elseif(condition.replace('if ', '').rstrip())
         else:
-            self.process = not self.conditionHandled
-        # Handle elseif (if appropriate)
-        if self.process and not self.conditionHandled:
-            self.process = self.conditionHandled = elseIfResult
-        if Debug(SHOW_CONDITIONAL_LEVEL):
-            print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
+            # Make sure else is allowed at this time
+            if Debug(SHOW_CONDITIONAL_DIRECTIVES):
+                print(f"{self.lineNumber}:else")
+            if not "Else" in self.allowedConditionals:
+                self.ReportError("Unexpected else directive encountered.")
+            # Set allowedConditonals
+            self.allowedConditionals = ['Endif']
+            # Set processing flag apprpriately
+            self.process = False    # Assume no processing
+            if bool(self.conditionalStack):
+                if self.conditionalStack[-1][0]:
+                    self.process = not self.conditionHandled
+                # else already taken care of by setting it to False above
+            else:
+                self.process = not self.conditionHandled
+            # Handle elseif (if appropriate)
+            if self.process and not self.conditionHandled:
+                self.process = self.conditionHandled
+            if Debug(SHOW_CONDITIONAL_LEVEL):
+                print(f"{self.lineNumber}:ConditionalLevel:{len(self.conditionalStack)}, Process: {self.process}, allowedConditionals: if, idef, indef, {', '.join(self.allowedConditionals)}")
 
     # Handle the ElseIf directive
     # condition: If condition
