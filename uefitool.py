@@ -23,6 +23,8 @@ PlatformInfo(platform.replace('\\', '/'))
 # - Right now assumes build with DEBUG ... need non-DEBUG option as well.
 # - Generate list of addresses.
 # - Fully check syntax of files ... right now syntax is assumed to be OK.
+# - Generate dependency list/chains for each inf.
+# - Fix macro definitions and evaluation (needs to be section, then file, then global)
 # - What other useful output could be generated?
 
 # Other ideas
