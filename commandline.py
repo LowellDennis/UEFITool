@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Standard python modules
 import argparse
@@ -12,7 +12,7 @@ class CommandLineParser(argparse.ArgumentParser):
 
   def __init__(self):
         global ProgramVersion
-        super().__init__(prefix_chars='-/', description=f'HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V{gbl.ProgramVersion}')
+        super().__init__(prefix_chars='-/' if gbl.isWindows else '-', description=f'HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V{gbl.ProgramVersion}')
 
   def error(self, msg):
       message = self.format_usage() + self.prog + ': error: ' + msg

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Standard python modules
 import os
@@ -111,7 +111,7 @@ class PlatformInfo:
     # returns nothing
     def __getPaths__(self):
         paths = os.environ["PACKAGES_PATH"].replace("\\", "/")
-        gbl.Paths = paths.split(";")
+        gbl.Paths = paths.split(";" if gbl.isWindows else ":")
         result = gbl.SetMacro("PACKAGES_PATH", gbl.Paths)
         if Debug(SHOW_MACRO_DEFINITIONS):
             print(f'{result}')

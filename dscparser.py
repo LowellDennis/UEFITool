@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Standard python modules
 # None
@@ -23,7 +23,7 @@ def GetHiiOptionNames(this, match, line):
     # Handle case where PCD is part of a structure or array
     if '.' in match.group(2) or '[' in match.group(2):
         return ['pcdtokenspaceguidname', 'pcdname', 'value', '', '', '', '', '']
-    if (match.group(13) and match.group(13) != '') or (match.group(11) != '' and not IsAttributes(match.group(11))):
+    if (match.group(13) and match.group(13) != '') or (match.group(11) and match.group(11) != '' and not IsAttributes(match.group(11))):
         # PCD is type VOID*
         return ['pcdtokenspaceguidname', 'pcdname', 'variablename', 'variableguid', 'variableoffset', 'maximumdatumsize', 'hiidefaultvalue', 'hiiattribute']
     # PCD is not type VOID*
