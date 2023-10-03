@@ -78,3 +78,4 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
 | V0.1	  | Original Release                                                                       |
+| V0.2	  | Updates to support Gen12 and Linux                                                     |
