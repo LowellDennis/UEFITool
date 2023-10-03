@@ -66,7 +66,6 @@ class UEFIParser:
         self.commentBlock         = False                      # Indicates if currently processing a comment block
         self.section              = None                       # Indicates the current section being processed (one of self.sections)
         self.sectionStr           = ""                         # String representing current section (for messaging)
-        self.macroVer             = gbl.MacroVer               # Version of macros when this file was first loaded
         # Setup conditional processiong
         self.conditionHandled     = False                      # Indicates if current conditional has been handled
         self.conditionalStack     = []                         # For nesting of conditionals

@@ -365,7 +365,6 @@ Protocols               = {}
 Guids                   = {}
 
 # Macro definitions used in expansion
-MacroVer                = 0
 Macros                  = {}
 
 # For keeping track of the files and lines
@@ -471,8 +470,7 @@ def JoinPath(path1, path2):
 # value: Value to be given to the macro
 # returns nothing
 def SetMacro(macro, value):
-    global MacroVer, Macros
+    global Macros
     if not macro in Macros or str(Macros[macro]) != str(value):
         Macros[macro] = value
-        MacroVer      += 1
-    return f'v{MacroVer}:{macro} = {value}'
+    return f'{macro} = {value}'

@@ -143,7 +143,7 @@ class DSCParser(UEFIParser):
     def directive_include(self, includeFile):
         def includeDSCFile(file):
             gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
-            if file in gbl.DSCs and gbl.DSCs[file].macroVer == gbl.MacroVer:
+            if file in gbl.DSCs:
                     if Debug(SHOW_SKIPPED_DSCS):
                         print(f"{self.lineNumber}:Previously loaded:{file}")
             else:

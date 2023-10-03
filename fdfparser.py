@@ -178,13 +178,13 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         def includeHandler(file):
             gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
             if file.lower().endswith(".dsc"):
-                if file in gbl.DSCs and gbl.DSCs[file].macroVer == gbl.MacroVer:
+                if file in gbl.DSCs:
                     if Debug(SHOW_SKIPPED_DSCS):
                         print(f"{self.lineNumber}:Previously loaded:{file}")
                 else:
                     gbl.DSCs[file] = DSCParser(file, [], True, self.OutsideLineHandler)
             else:
-                if file in gbl.FDFs and gbl.FDFs[file].macroVer == gbl.MacroVer:
+                if file in gbl.FDFs:
                     if Debug(SHOW_SKIPPED_FDFS):
                         print(f"{self.lineNumber}:Previously loaded:{file}")
                 else:
