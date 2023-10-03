@@ -44,8 +44,6 @@ class UEFIParser:
     #        If no handler is found an error will be generated.
     #    Child class MUST provide a hanlder for "directive_include" if allowIncludes is se to True.
     #        If no handler is found an error will be generated.
-    #    Child class MAY  provide "onentry_<name>" handler to be called when section "name" is entered.
-    #    Child class MAY  provide "onexit_<name>"  handler to be called when section "name" is exited.
     #    Child class MAY  provide "macro_<name>"   handler to be called when macro "name" is set.
     #    This class provides handlers for all conditional directives (except include).
 
@@ -196,15 +194,8 @@ class UEFIParser:
                     self.ReportError(f"Missing closing brace for {handler()}")
                 self.subElementState = -1
                 self.subElements  = []
-            # Call onexit section handlers (if any)
+            # Exit current sections (if any)
             if bool(self.sections):
-                for section in self.sections:
-                    # Make sure section is supported archtecture
-                    if self.__sectionSupported__(section):
-                        handler = getattr(self, f"onexit_{section[0].lower()}", None)
-                        if handler and callable(handler): handler()
-                    # else handled by __sectionSupported__ method
-                # Clear old sections
                 self.sections.clear()
         # Get sections (format <section1>[, <designator2>[, ... <designatorn>]])
         sections = match.group(1).split(',')
@@ -223,10 +214,6 @@ class UEFIParser:
                     sectionStr = gbl.GetSection(items)
                     if Debug(SHOW_SECTION_CHANGES):
                         print(f"{self.lineNumber}:{sectionStr}")
-                    # Call onentry section handler (if any)
-                    handler = getattr(self, f"onentry_{name}", None)
-                    if handler and callable(handler):
-                        handler()
                 # Else taken care of in __sectionSupported method!
                 # No need to look for handler here because some section may use the default handler
             else:
