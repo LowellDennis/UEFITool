@@ -442,7 +442,7 @@ class UEFIParser:
             # Go through the content one at a time
             self.lineNumber = 0
             for line in content:
-                gbl.Lines           += 1
+                gbl.Lines       += 1
                 self.lineNumber += 1
                 line = self.__removeComments__(line)
                 if not line:
@@ -467,8 +467,8 @@ class UEFIParser:
                 match = re.match(gbl.reDefines, line, re.IGNORECASE)
                 if match:
                     macro, value = (match.group(1), match.group(2))
-                    # Do not include DATA = { lines!
-                    if not (macro == 'DATA' and value == '{'):
+                    # Do not include "DATA = {" lines or lines defining GUID values!
+                    if not value.startswith('{'):
                         self.DefineMacro(macro, value if value != None else '')
                         continue
                 # Look for section change
