@@ -424,6 +424,11 @@ class UEFIParser:
         matches = re.findall(r'\$\(([^\)]+)\)', line)
         # Loop through all ocurrances
         for match in matches:
+            #if not match in gbl.Macros:
+            #    reAllow = r'^!((ifndef)|(ifdef)|(((elseif)|(elif)|(else\s+if)|(if)).*defined\(.+\)))'
+            #    allow   = re.match(reAllow, line)
+            #    if not allow:
+            #        self.ReportError(f'Undefined macro encountered: {match}')
             # Replace the macro with its value (or __<macroName>__UNDEFINED__ if it is not defined)
             value = str(gbl.Macros[match]).replace('"', '') if match in gbl.Macros else F"__{match}__UNDEFINED__"
             line = line.replace(f"$({match})", '""' if not value else value)
