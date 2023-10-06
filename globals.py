@@ -75,48 +75,6 @@ re1to8Items           = r'^([^\s]+)\s*([^\s]+)?\s*([^\s]+)?\s*([^\s]+)?\s*([^\s]
 # Groups 1=>DEFINE, 2=>item, 3=optional value (Note DEFINE and = are required)
 reDefine              = r'^(DEFINE)\s+' + reFirmEquate
 
-### Regular expressions for BuildArgs.txt files
-###############################################
-
-# Regular Expression for matching lines with format "-D variable [= [value]]"
-# Groups 1=>variable, 3=>optional value (Note = is always required)
-reEnvironmentVariables = r'^' + reFirmEquate
-
-# Regular Expression for matching lines with format "-<char>|--<word> [arg [= [value]]]"
-# Groups 2=>-<char> or --<word>, 4=>optional arg, 6=>optional value (Note = is only required if value is specified)
-reHpBuildArgs          = r'^((-[a-zA-Z]|--[a-zA-Z0-9_]+)\s+)(' + reSoftEquate[0:-1] + r')?$'
-
-# Regular Expression for matching lines with format "pyfile:function(arguments)"
-# Groups 1=>pyfile, 2=>function, 3=>arguments
-rePythonScripts        = r'^([^;]+);([^\(]+)\(([^\)]*)\)'
-
-### Regular expressions for ChipsetInfo.txt files
-#################################################
-
-# Regular Expression for matching lines with format "binary = path"
-# Groups 1=>binary, 2=path
-reBinariesEqu          = r'^' + reFirmEquate
-
-# Regular Expression for matching lines with format "-D arg [= [value]]"
-# Groups 1=>arg, 3=>optional value
-# reHpBuildArgs same as above
-
-# Regular Expression for matching lines with format "package"
-# Groups 1=>package
-rePlatformPackages     = r'^' + reToEOL
-
-# Regular Expression for matching lines with format "version = snap"
-# Groups 1=>version, 2=snap
-reSnaps                = r'^' + reHardEquate
-
-# Regular Expression for matching lines with format "tag"
-# Groups 1=>tag
-reTagExceptions        = r'^' + reToEOL
-
-# Regular Expression for matching lines with format "patch = name"
-# Groups 1=>patch, 2=name
-reuPatches             = r'^' + reHardEquate
-
 ### Regular expressions for DSC files
 #####################################
 
@@ -370,7 +328,6 @@ Macros                  = {}
 # For keeping track of the files and lines
 Lines                   = 0
 References              = {}
-ARGs                    = {}
 DSCs                    = {}
 INFs                    = []
 DECs                    = []
