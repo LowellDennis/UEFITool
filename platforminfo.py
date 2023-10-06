@@ -9,7 +9,6 @@ import sys
 # Local modules
 from   debug      import *
 import globals    as     gbl
-from   argsparser import ArgsParser
 from   dscparser  import DSCParser
 from   infparser  import INFParser
 from   decparser  import DECParser
