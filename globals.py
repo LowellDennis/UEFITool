@@ -355,7 +355,6 @@ reVer                 = r'(VERSION|UI)\s+(.+)$'
 
 # Global Variables
 CommandLineResults      = None
-BasePath                = None
 Paths                   = []
 Apriori                 = {}
 Sources                 = {}
@@ -363,6 +362,7 @@ Pcds                    = {'dsc': {}, 'dec': {}}
 Ppis                    = {}
 Protocols               = {}
 Guids                   = {}
+Worktree                = None
 
 # Macro definitions used in expansion
 Macros                  = {}
@@ -406,7 +406,7 @@ def Error(message):
 # partial: partial path for whcihc to search
 # returns full path or None if full path could not be found
 def FindPath(partial):
-    global BasePath, Paths
+    global Paths, Worktree
     # First try path as-is
     if os.path.exists(partial.replace('/', "\\")):
         return partial
@@ -414,7 +414,7 @@ def FindPath(partial):
     for p in Paths:
         file = JoinPath(p, partial)
         if os.path.exists(file):
-            return os.path.relpath(file, BasePath).replace('\\', '/')
+            return os.path.relpath(file, Worktree).replace('\\', '/')
     return None
 
 # Replace all occurances of __<macro>__UNDEFINED__ with $(<macro>) within a string.
