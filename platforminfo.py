@@ -2,6 +2,8 @@
 
 # Standard python modules
 import os
+import shutil
+import subprocess
 import sys
 
 # Local modules
@@ -20,24 +22,20 @@ class PlatformInfo:
     # platform: Platform directory
     # returns nothing
     def __init__(self, platform):
+        # Save platform
         self.platform  = platform
-        self.__findBase__()
+        # Find Worktree and change to it (this is where builds happen!)
+        self.__findWorktree__()
         savedDir = os.getcwd()
-        os.chdir(gbl.BasePath)
-        self.platform  = os.path.relpath(platform, gbl.BasePath).replace('\\', '/')
+        os.chdir(gbl.Worktree)
+        self.platform  = os.path.relpath(platform, gbl.Worktree).replace('\\', '/')
         self.argsFile  = gbl.JoinPath(self.platform, "PlatformPkgBuildArgs.txt")
         self.dscFile   = gbl.JoinPath(self.platform, "PlatformPkg.dsc")
         self.decFile   = gbl.JoinPath(self.platform, "PlatformPkg.dec")
         self.fdfFile   = gbl.JoinPath(self.platform, "PlatformPkg.fdf")
-        platform = self.platform[-6:-3]
-        build_dir = os.path.join(gbl.BasePath, 'Build')
-        self.__setEnvironment__('PLATFORM', platform)
-        self.__setEnvironment__('TARGET', 'DEBUG')
-        self.__setEnvironment__('BUILD_DIR', build_dir)
-        self.__setEnvironment__('WORKSPACE', gbl.BasePath)
-        self.__getWorkspace__()
-        self.__getPaths__()
-        self.__getHpPlatformPkg__()
+        self.__initializeEnvironment__()
+        out = self.__spoofBuild__()
+        self.__processOutput__(out)
         self.__processPlatform__()
         os.chdir(savedDir)
 
@@ -52,95 +50,6 @@ class PlatformInfo:
         if gbl.isWindows: value = value.replace('/', '\\')
         os.environ[variable] = value
 
-    # Finds the base directory of the platform tree
-    # returns nothing
-    # EXITS WIT?H ERROR MESSAGE AND DOES NOT RETURN IF NOT FOUND
-    def __findBase__(self):
-        gbl.BasePath = self.platform
-        while True:
-            # Look for Edk2 in current directory
-            if os.path.isdir(os.path.join(gbl.BasePath, 'Edk2')):
-                break
-            # If not base move up one directory level
-            old = gbl.BasePath
-            gbl.BasePath = os.path.dirname(gbl.BasePath)
-            # Get out if not found and no more levels to explore
-            if gbl.BasePath == old:
-                gbl.Error('Unable to locate base of UEFI platform tree ... exiting!')
-                sys.exit(1)
-        # Get PATH from the environment
-        result = gbl.SetMacro('PATH', os.environ['PATH'].replace('\\', '/'))
-        if Debug(SHOW_MACRO_DEFINITIONS):
-            print(f'{result}')
-
-    # Utility form finding a particular line in the argsFile
-    # lookFor: Partial contents of line being sought
-    # returns Line split by ';'
-    # EXITS WITH ERROR IF NOT FOUND OR LINE DOES NOT SPLIT
-    def __findLine__(self, lookFor):
-        # Read in arguments file
-        if not bool(self.content):
-            with open(self.argsFile, 'r') as file:
-                self.content = file.readlines()
-        for line in self.content:
-            if lookFor in line:
-                items = line.strip().split(';', maxsplit=1)
-                if len(items) < 2:
-                    gbl.Error('Invaid format in {lookFor} line ... exiting!')
-                    sys.exit(3)
-                return items
-        gbl.Error(f'Unable to locate {lookFor} in {self.argsFile}')
-        sys.exit(2)
-
-    def __getWorkspace__(self):
-        # Get workpace and prebuild lines from args file
-        workspaceItems = self.__findLine__(';set_platform_workspace')
-        # HpCommon is expected to be in this path!
-        if not 'HpCommon' in workspaceItems[0]:
-            gbl.Error(f'Unable to detect path to HpCommon')
-            sys.exit(3)
-        index = workspaceItems[0].index('HpCommon')
-        self.hppython = os.path.abspath(os.path.join(gbl.BasePath, workspaceItems[0][0:index]))
-        sys.path.insert(0,self.hppython)
-        # Make workspace path absolute
-        workspaceArg = os.path.abspath(os.path.join(gbl.BasePath, workspaceItems[1].replace("set_platform_workspace", "")[2:-2]))
-        from HpCommon import HpSetPlatformWorkspace
-        HpSetPlatformWorkspace.set_platform_workspace(gbl.JoinPath(gbl.BasePath, workspaceArg))
-
-    # Determines value for PACKAGES_PATH environment variable
-    # returns nothing
-    def __getPaths__(self):
-        paths = os.environ["PACKAGES_PATH"].replace("\\", "/")
-        gbl.Paths = paths.split(";" if gbl.isWindows else ":")
-        result = gbl.SetMacro("PACKAGES_PATH", gbl.Paths)
-        if Debug(SHOW_MACRO_DEFINITIONS):
-            print(f'{result}')
-
-    # Finds the chipset DSC file
-    # returns the chipset file
-    # EXITS WIT?H ERROR MESSAGE AND DOES NOT RETURN IF NOT FOUND
-    def __getHpPlatformPkg__(self):
-        hpPlatformPkg = gbl.GetMacroValue(self.dscFile, "HP_PLATFORM_PKG")
-        if not hpPlatformPkg:
-            commonFamily = gbl.GetMacroValue(self.dscFile, "COMMON_FAMILY")
-            if not commonFamily:
-                gbl.Error('Unable to determine value for COMMON_FAMILY ... exiting!')
-                sys.exit(2)
-            result = gbl.SetMacro("COMMON_FAMILY", commonFamily)
-            if Debug(SHOW_MACRO_DEFINITIONS):
-                print(f'{result}')
-            file = gbl.FindPath(gbl.JoinPath(commonFamily, "PlatformPkgConfigCommon.dsc"))
-            if not file:
-                gbl.Error('Unable to locate common family file ... exiting!')
-                sys.exit(3)
-            hpPlatformPkg = gbl.GetMacroValue(file, "HP_PLATFORM_PKG")
-            if not hpPlatformPkg:
-                gbl.Error('Unable to determine value for HP_PLATFORM_PKG ... exiting!')
-                sys.exit(4)
-        result = gbl.SetMacro("HP_PLATFORM_PKG", hpPlatformPkg)
-        if Debug(SHOW_MACRO_DEFINITIONS):
-            print(f'{result}')
-
     # Get a list of sorted key from a dictionary
     # dictionary: Dictionary from which the sortk key list is desired
     # returns sorted key list
@@ -149,13 +58,6 @@ class PlatformInfo:
         keys.sort()
         return keys
     
-    # Process the HPAgrs file(s)
-    # returns nothing
-    def __processArgs__(self):
-        # Processing starts with the HPArgs file in the platform directory
-        gbl.AddReference(self.argsFile, self.platform, None)
-        gbl.ARGs[self.argsFile] = ArgsParser(self.argsFile)
-
     # Process the DSC file(s)
     # returns nothing
     def __processDSCs__(self):
@@ -215,12 +117,140 @@ class PlatformInfo:
         gbl.AddReference(self.fdfFile, self.platform, None)
         gbl.FDFs[self.fdfFile] = FDFParser(self.fdfFile)
 
+    # Finds the base directory of the platform tree
+    # returns nothing
+    # EXITS WIT?H ERROR MESSAGE AND DOES NOT RETURN IF NOT FOUND
+    def __findWorktree__(self):
+        gbl.Worktree = self.platform
+        while True:
+            # Look for Edk2 in current directory
+            if os.path.isdir(os.path.join(gbl.Worktree, 'Edk2')):
+                break
+            # If not base move up one directory level
+            old = gbl.Worktree
+            gbl.Worktree = os.path.dirname(gbl.Worktree)
+            # Get out if not found and no more levels to explore
+            if gbl.Worktree == old:
+                gbl.Error('Unable to locate base of UEFI platform tree ... exiting!')
+                sys.exit(1)
+
+    # Initializes the environment
+    # returns nothing
+    def __initializeEnvironment__(self):
+        # Get PATH from the environment
+        path = os.environ['PATH'].replace('\\', '/')
+        result = gbl.SetMacro('PATH', path)
+        if Debug(SHOW_MACRO_DEFINITIONS):
+            print(f'{result}')
+        self.__setEnvironment__('PLAT_PKG_PATH', self.platform)
+        platform = self.platform[-6:-3]
+        self.__setEnvironment__('PLATFORM', platform)
+        self.__setEnvironment__('TARGET', 'DEBUG')
+        build_dir = os.path.join(gbl.Worktree, 'Build')
+        self.__setEnvironment__('BUILD_DIR', build_dir)
+        self.__setEnvironment__('WORKSPACE', gbl.Worktree)
+    
+    # Take over build.py and cause it to spit out needed information
+    # returns output from spoofed build.by usage
+    # Note: build.py is returned to its previous state afterwards
+    def __spoofBuild__(self):
+        # Directories and filenames of interest
+        tgtDir = gbl.JoinPath(gbl.Worktree, 'Edk2/BaseTools/Source/Python/build')
+        build  = gbl.JoinPath(tgtDir, 'build.py')
+        old    = gbl.JoinPath(tgtDir, 'build_old.py')
+        # Make sure old file does not exist (that means last spoof did not complete)
+        if os.path.exists(old):
+            gbl.Error('Unable to spoof build.py ... exiting!')
+            sys.exit(2)
+        # Rename build.py to build_old.py and remove build.py
+        shutil.copyfile(build, old)
+        os.remove(build)
+        # Copy build_old.py to build.py line by line and insert spoof code where needed
+        with open(build, 'w') as b:
+            with open(old, 'r') as o:
+                line = o.readline()
+                while line:
+                    if not line == "if __name__ == '__main__':\n":
+                        b.write(line)
+                    else:
+                        b.write("def DumpInfo():\n")
+                        b.write("    print('UEFITool DumpInfo Start')\n")
+                        b.write("    for i in sys.argv:\n")
+                        b.write("        print(i)\n")
+                        b.write("    print('UEFITool DumpInfo Middle')\n")
+                        b.write("    for i in os.environ:\n")
+                        b.write("        print(f'{i}={os.environ[i]}')\n")
+                        b.write("    print('UEFITool DumpInfo End')\n")
+                        b.write("    sys.exit(-1)\n\n")
+                        b.write("\n")
+                        b.write("if __name__ == '__main__':\n")
+                        b.write("    DumpInfo()\n")
+                    line = o.readline()
+        # Execute spoof build
+        script   = "hpbuild.bat" if gbl.isWindows else 'source hpbuild.sh'
+        cmd    = f'{script} -P {os.environ["PLATFORM"]} -b DEBUG'
+        proc     = subprocess.Popen(cmd , shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = proc.communicate()
+        # Move build_old.py back to build.py
+        shutil.copyfile(old, build)
+        os.remove(old)
+        return err
+
+    # Process the spoofed output
+    # out: output of spoofed run of build.py
+    # returns nothing
+    def __processOutput__(self, out):
+        # Convert output to ascii and split into lines
+        out = out.decode()
+        lines = out.split('\r\n' if gbl.isWindows else '\n')
+        # Find UEFITool spoofed information
+        for i, l in enumerate(lines):
+            if not 'UEFITool DumpInfo' in l:
+                continue
+            if ' Start' in l:
+                cmdStart = i + 1
+            elif ' Middle' in l:
+                cmdEnd   = i
+                envStart = i + 1
+            elif ' End' in l:
+                envEnd   = i
+                break
+        else:
+            gbl.Error('Spoof output not as expected ... exiting!')
+            sys.exit(3)
+        # Loop throgh command line
+        i = cmdStart
+        while i < cmdEnd:
+            # Look for -D options (define)
+            if lines[i].strip() == '-D':
+                # Get and save definition
+                i += 1
+                tokens = lines[i].strip().split('=', 1)
+                result = gbl.SetMacro(tokens[0], '' if len(tokens) < 2 else tokens[1].replace('\\', '/'))
+                if Debug(SHOW_MACRO_DEFINITIONS):
+                    print(f'{result}')
+            i += 1
+        # Loop through environment
+        for i in range(envStart, envEnd):
+            # Get environment variable and its value
+            env, value = lines[i].strip().split('=', 1)
+            # See if it is already set and is the same
+            if env in os.environ and os.environ[env] == value:
+                continue
+            result = gbl.SetMacro(env, value.replace('\\', '/'))
+            if Debug(SHOW_MACRO_DEFINITIONS):
+                print(f'{result}')
+
     # Process a platform and output the results
     # returns nothing
     def __processPlatform__(self):
+        
+        # Set of the library package path
+        paths     = gbl.Macros["PACKAGES_PATH"]
+        gbl.Paths = paths.split(";" if gbl.isWindows else ":")
 
         # Parse all of the files
-        for name, handler in [('Args', self.__processArgs__), ('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
+        for name, handler in [('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
             if Debug(SHOW_FILENAMES):
                 print(f"Parsing {name} files:")
                 length = len('Parsing  files:') + len(name)
@@ -231,14 +261,14 @@ class PlatformInfo:
         # Show results
         print(f"\nRESULTS:")
         print(f"--------")
-        print(f"Base Directory:          {gbl.BasePath}")
-        for item in  [ 'ARGs', 'DSC', 'DEC', 'FDF']:
+        print(f"Worktree:                {gbl.Worktree}")
+        for item in  [ 'DSC', 'DEC', 'FDF']:
             spaces = ' ' * (15 - len(item))
             print(f"Platform {item}:{spaces}{getattr(self, item.lower() + 'File')}")
         print(f"Supported Architectures: {','.join(gbl.SupportedArchitectures)}")
         values = []
         total  = 0
-        for i, item in  enumerate([ 'ARG', 'DSC', 'INF', 'DEC', 'FDF']):
+        for i, item in  enumerate([ 'DSC', 'INF', 'DEC', 'FDF']):
             values.append(eval(f'len(gbl.{item}s)'))
             print(f"{item} files processed:     {values[i]}")
             total += values[i]
