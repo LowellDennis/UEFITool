@@ -467,13 +467,6 @@ class UEFIParser:
                     self.DefineMacro(macro, value if value != None else '')
                     continue
                 # Handle EQUATE lines anywhere
-                match = re.match(gbl.reDefines, line, re.IGNORECASE)
-                if match:
-                    macro, value = (match.group(1), match.group(2))
-                    # Do not include "DATA = {" lines or lines defining GUID values!
-                    if not value.startswith('{'):
-                        self.DefineMacro(macro, value if value != None else '')
-                        continue
                 # Look for section change
                 if self.__handleNewSection__(line):
                     continue
@@ -657,7 +650,9 @@ class UEFIParser:
                # Include the file!
                 if Debug(SHOW_INCLUDE_DIRECTIVE):
                     print(f"{self.lineNumber}:Including {file}")
+                saved         = self.sections.copy()
                 handler(file)
+                self.sections = saved
                 if Debug(SHOW_INCLUDE_RETURN):
                     print(f"{self.lineNumber}:Returning to {self.fileName}")
             # Note else error handled in self.FindFile!

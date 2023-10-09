@@ -91,7 +91,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # Class constructor
     # filename: File to parse
     # returns nothing
-    def __init__(self, fileName):
+    def __init__(self, fileName, sections = [], process = True):
         # Initialize attributes specific to this class (capitalized attributes will be shown when class is dumped)
         self.APRIORI  = {}
         self.CAPSULES = []
@@ -108,7 +108,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         self.guided   = None    # No guided descriptor     is being processed
         self.sect     = None    # No section descriptor    is being proecessed
         # Initialize attributes specific to this class (capitalized attributes will be shown if class is dumped below)
-        super().__init__(fileName, self.FDFSections, True, True)
+        super().__init__(fileName, self.FDFSections, True, True, [], sections, process)
 
     ###################
     # Private methods #
@@ -220,7 +220,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
                     if Debug(SHOW_SKIPPED_FDFS):
                         print(f"{self.lineNumber}:Previously loaded:{file}")
                 else:
-                    gbl.FDFs[file] = FDFParser(file)
+                    gbl.FDFs[file] = FDFParser(file, self.sections, self.process)
         self.IncludeFile(line, includeHandler)
 
     ####################
