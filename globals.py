@@ -327,7 +327,6 @@ Macros                  = {}
 
 # For keeping track of the files and lines
 Lines                   = 0
-References              = {}
 DSCs                    = {}
 INFs                    = []
 DECs                    = []
@@ -339,6 +338,27 @@ SupportedArchitectures  = []
 # Determine if this is Windows OS
 isWindows  = 'WINDOWS' in platform.platform().upper()
 
+# Class for an Source list item
+class SourceItem:
+
+    # Constructor
+    # fileName:   Filename where the list is found
+    # lineNumber: Line number where the list starts
+    def __init__(self, fileName, lineNumber):
+        self._references = []
+        self.Append(fileName, lineNumber)
+
+    # Add an item to the apriori list
+    def Append(self, fileName, lineNumber):
+        self._references.append({'fileName': fileName, 'lineNumber': lineNumber})
+
+    # Getter for fileName property
+    def _get_references(self):
+        return self._references
+
+    # Define the properties
+    references = property(fget = _get_references) 
+
 # Add a new refernce
 # reference: File being referenced
 # refererer: File (or platform) making the reference)
@@ -346,9 +366,11 @@ isWindows  = 'WINDOWS' in platform.platform().upper()
 #            (this will be None for references from the platform directory)
 # returns nothing
 def AddReference(reference, referer, line):
-    global References
-    if not reference in References: References[reference] = []
-    References[reference].append( (referer, line) )
+    global Sources
+    if reference in Sources:
+        Sources[reference].Append(referer, line)
+    else:
+        Sources[reference] = SourceItem(referer, line)
 
 # Output an error message to STDERR
 # message: Message to display

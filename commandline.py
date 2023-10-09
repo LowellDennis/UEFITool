@@ -43,7 +43,7 @@ def ProcessCommandLine():
     CommandLine.add_argument('-s', '--source',
                     action = 'store_true',
                     dest='sources',
-                    help='do not generate source file list (source.lst)')
+                    help='do not generate source file and references list (source.lst, references.lst)')
     # Add ability to control PCD listing
     CommandLine.add_argument('-p', '--pcds',
                     action = 'store_true',

@@ -128,8 +128,6 @@ class INFParser(UEFIParser):
     def match_reSources(self, match):
         def AddSource(file):
             path = os.path.join(os.path.dirname(self.fileName), file).replace('\\', '/')
-            if not path in gbl.Sources:
-                gbl.Sources[path] = path
             gbl.AddReference(path, self.fileName, self.lineNumber)
         files = match.group(1)
         if '|' in files:

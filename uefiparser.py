@@ -70,8 +70,6 @@ class UEFIParser:
         self.conditionHandled     = False                      # Indicates if current conditional has been handled
         self.conditionalStack     = []                         # For nesting of conditionals
         self.allowedConditionals  = []                         # Note If, Ifdef, and Ifndef are always allowed
-        if not fileName in gbl.Sources:
-            gbl.Sources[fileName] = fileName 
         self.__parse__()
 
     ###################

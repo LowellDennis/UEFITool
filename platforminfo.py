@@ -28,7 +28,6 @@ class PlatformInfo:
         savedDir = os.getcwd()
         os.chdir(gbl.Worktree)
         self.platform  = os.path.relpath(platform, gbl.Worktree).replace('\\', '/')
-        self.argsFile  = gbl.JoinPath(self.platform, "PlatformPkgBuildArgs.txt")
         self.dscFile   = gbl.JoinPath(self.platform, "PlatformPkg.dsc")
         self.decFile   = gbl.JoinPath(self.platform, "PlatformPkg.dec")
         self.fdfFile   = gbl.JoinPath(self.platform, "PlatformPkg.fdf")
@@ -291,12 +290,16 @@ class PlatformInfo:
                         for i, apriori in enumerate(gbl.Apriori[item].list):
                             lst.write(f"{i+1}. {apriori}\n")
 
-        # Generate sources list (if indicated)
+        # Generate sources and references lists (if indicated)
         if not gbl.CommandLineResults.sources:
-            print(f"Generating sources.lst ...")
+            print(f"Generating sources.lst and references.lst ...")
             with open(os.path.join(self.platform, 'sources.lst'), 'w') as lst:
-                for source in self.__sortedKeys__(gbl.Sources):
-                    lst.write(f"{source}\n")
+                with open(os.path.join(self.platform, 'references.lst'), 'w') as lst2:
+                    for source in self.__sortedKeys__(gbl.Sources):
+                        lst.write(f"{source}\n")
+                        lst2.write(f"{source}\n")
+                        for ref in gbl.Sources[source].references:
+                            lst2.write(f"    REF - {ref['lineNumber']}:{ref['fileName']}\n")
 
         # Generate library list (if indicated)
         if not gbl.CommandLineResults.libraries:
