@@ -9,6 +9,38 @@ import globals    as     gbl
 from   uefiparser import UEFIParser
 from   dscparser  import DSCParser
 
+# Class for an Apriori list
+class Apriori:
+
+    # Constructor
+    # fileName:   Filename where the list is found
+    # lineNumber: Line number where the list starts
+    def __init__(self, fileName, lineNumber):
+        self._fileName   = fileName
+        self._lineNumber = lineNumber
+        self._list       = []
+
+    # Add an item to the apriori list
+    def Append(self, item):
+        self._list.append(item)
+
+    # Getter for fileName property
+    def _get_fileName(self):
+        return self._fileName
+
+    # Getter for lineNumber property
+    def _get_lineNumber(self):
+        return self._lineNumber
+
+    # Getter for list property
+    def _get_list(self):
+        return self._list
+
+    # Define the properties
+    fileName   = property(fget = _get_fileName) 
+    lineNumber = property(fget = _get_lineNumber) 
+    list       = property(fget = _get_list) 
+
 # Class for handling UEFI FDF files
 class FDFParser(UEFIParser):   #debug,        regularExpression(s),                    handlerArguments
     # regExLists
@@ -244,7 +276,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         # Get APRIORI type
         self.apriori = match.group(1)
         # Start apriori list
-        self.APRIORI[self.apriori] = []
+        self.APRIORI[self.apriori] = Apriori(self.fileName, self.lineNumber)
         if Debug(SHOW_FV):
             print(f'{self.lineNumber}:Entering {self.apriori} apriori list')
 
@@ -408,9 +440,9 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         inf = match.group(4)
         gbl.AddReference(inf, self.fileName, self.lineNumber)       # Add reference to INF file
         if self.apriori:
-            self.APRIORI[self.apriori].append(inf)
+            self.APRIORI[self.apriori].Append(inf)
             if Debug(SHOW_FV):
-                print(f'{self.lineNumber}:{inf} added to {self.apriori} list (#{len(self.APRIORI[self.apriori])})')
+                print(f'{self.lineNumber}:{inf} added to {self.apriori} list (#{len(self.APRIORI[self.apriori].list)})')
         # Normal INF entry
         else:
             # Add any detected options
@@ -593,7 +625,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
         if bool(self.APRIORI):
             for name in self.APRIORI:
                 print(f'    {name} Apriori:')
-                for i, item in enumerate(self.APRIORI[name]):
+                for i, item in enumerate(self.APRIORI[name].list()):
                     print(f"        {i+1}:{item}")
 
     def DumpINFS(self):
