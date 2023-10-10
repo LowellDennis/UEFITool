@@ -60,7 +60,7 @@ class PlatformInfo:
     # returns nothing
     def __processDSCs__(self):
         # Processing starts with the platform DSC file in the platform directory
-        gbl.AddSourceReference(self.dscFile, self.platform, None)
+        gbl.ReferenceSource(self.dscFile, self.platform, None)
         gbl.DSCs[self.dscFile] = DSCParser(self.dscFile)
 
     # Process the INF file(s)
@@ -112,7 +112,7 @@ class PlatformInfo:
     # returns nothing
     def __processFDFs__(self):
         # Processing starts with the platform DSC file in the platform directory
-        gbl.AddSourceReference(self.fdfFile, self.platform, None)
+        gbl.ReferenceSource(self.fdfFile, self.platform, None)
         gbl.FDFs[self.fdfFile] = FDFParser(self.fdfFile)
 
     # Finds the base directory of the platform tree
@@ -359,12 +359,27 @@ class PlatformInfo:
             print(f"Generating pdcs.lst ...")
             with open(os.path.join(self.platform, 'pcds.lst'), 'w') as lst:
                 # Get PCD settings from DECs
-                for name in self.__sortedKeys__(gbl.Pcds['dec']):
-                    default, kind, id = gbl.Pcds['dec'][name]
-                    # See if there is an override in DSC file
-                    if name in gbl.Pcds['dsc']:
-                        default = gbl.Pcds['dsc'][name][1]
-                    lst.write(f"{name}|{default}|{kind}|{id}\n")
+                for name in self.__sortedKeys__(gbl.Pcds):
+                    pcd = gbl.Pcds[name]
+                    # Don't include subtype PCDs
+                    if '[' in name or len(name.split('.')) > 2:
+                        continue
+                    lst.write(f"{name}\n")
+                    definer = pcd.definer
+                    if definer:
+                        lst.write(f"    defined:  {pcd.definer['lineNumber']}:{pcd.definer['fileName']}\n")
+                    lst.write(f"    default:  {pcd.default}\n")
+                    lst.write(f"    type:     {pcd.datum}\n")
+                    lst.write(f"    token:    {pcd.token}\n")
+                    overrider = pcd.overrider
+                    if overrider:
+                        lst.write(f"    override: {pcd.overrider['lineNumber']}:{pcd.overrider['fileName']}\n")
+                        lst.write(f"    value:    {pcd.value}\n")
+                        lst.write(f"    size:     {pcd.size}\n")
+                    references = pcd.references
+                    if references:
+                        for ref in references:
+                            lst.write(f'    ref:      {ref["lineNumber"]}:{ref["fileName"]}\n')                            
 
         # Show file dumps (if indicated)
         if gbl.CommandLineResults.dump:

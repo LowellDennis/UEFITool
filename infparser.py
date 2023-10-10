@@ -114,14 +114,13 @@ class INFParser(UEFIParser):
     # returns nothing
     def match_reGuids(self, match):
         guid = match.group(1)
-        gbl.AddGuidReference(guid, gbl.Guids, self.fileName, self.lineNumber)
+        gbl.ReferenceGuid(guid, gbl.Guids, self.fileName, self.lineNumber)
 
-    # Handle a match in the [Packages] section for rePackages
+    # Handle a match in the [Pcds] section for rePcdOvr
     # match: Results of regex match
     # returns nothing
     def match_rePcdOvr(self, match):
-        if match.group(4) and match.group(4) != '':
-            pass
+        gbl.ReferencePCD(match.group(1), match.group(2), self.fileName, self.lineNumber)
 
     # Handle a match in the [Packages] section for rePackages
     # match: Results of regex match
@@ -134,14 +133,14 @@ class INFParser(UEFIParser):
     # returns nothing
     def match_rePpis(self, match):
         ppi = match.group(1)
-        gbl.AddGuidReference(ppi, gbl.Ppis, self.fileName, self.lineNumber)
+        gbl.ReferenceGuid(ppi, gbl.Ppis, self.fileName, self.lineNumber)
 
     # Handle a match in the [Ppis] section for rePpis
     # match: Results of regex match
     # returns nothing
     def match_reProtocolsBar(self, match):
         protocol = match.group(1)
-        gbl.AddGuidReference(protocol, gbl.Protocols, self.fileName, self.lineNumber)
+        gbl.ReferenceGuid(protocol, gbl.Protocols, self.fileName, self.lineNumber)
 
     # Handle a match in the [Sources] section for rePackages
     # match: Results of regex match
@@ -149,7 +148,7 @@ class INFParser(UEFIParser):
     def match_reSources(self, match):
         def AddSource(file):
             path = os.path.join(os.path.dirname(self.fileName), file).replace('\\', '/')
-            gbl.AddSourceReference(path, self.fileName, self.lineNumber)
+            gbl.ReferenceSource(path, self.fileName, self.lineNumber)
         files = match.group(1)
         if '|' in files:
             AddSource(files.split('|')[0].lstrip())

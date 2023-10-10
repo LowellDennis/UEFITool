@@ -213,7 +213,7 @@ reSources              = r'^' + re1to8Items
 # reLibraryClasses same as above
 
 # Regular expression for matching lines with format "space.pcd | value [ | type [ | size ]] [ { ]
-# Groups 1=>space, 2=>pcd, 4=>value, 6=>optional type, 8=>optional size 9=> optional sub-element start marker
+# Groups 1=>space, 2=>pcd, 4=>value, 6=>optional type, 8=>optional size or token 9=> optional sub-element start marker
 rePcdDef               = fr'{reStart}({reVal}({reItem}({reItem})?)?)?' + r'\s*(\{)?$'
 
 # Regular expression for matching lines with format "ppi = value"
@@ -316,7 +316,7 @@ CommandLineResults      = None
 Paths                   = []
 Apriori                 = {}
 Sources                 = {}
-Pcds                    = {'dsc': {}, 'dec': {}}
+Pcds                    = {}
 Ppis                    = {}
 Protocols               = {}
 Guids                   = {}
@@ -348,7 +348,9 @@ class Reference:
         self._references = []
         self.Reference(fileName, lineNumber)
 
-    # Add an item to the apriori list
+    # Add a refernce to the source file
+    # fileName:   File containing the reference
+    # lineNumber: Line number containing the reference
     def Reference(self, fileName, lineNumber):
         self._references.append({'fileName': fileName, 'lineNumber': lineNumber})
 
@@ -356,7 +358,7 @@ class Reference:
     def _get_references(self):
         return self._references
 
-    # Define the properties
+    # Properties
     references = property(fget = _get_references) 
 
 # Add a new source file reference
@@ -365,7 +367,7 @@ class Reference:
 # line:      Line number of the reference
 #            (this will be None for references from the platform directory)
 # returns nothing
-def AddSourceReference(reference, referer, line):
+def ReferenceSource(reference, referer, line):
     global Sources
     if reference in Sources:
         Sources[reference].Reference(referer, line)
@@ -376,19 +378,24 @@ def AddSourceReference(reference, referer, line):
 class GUID:
 
     # Constructor
-    # fileName:   Filename where the list is found
-    # lineNumber: Line number where the list starts
     def __init__(self):
         self._value      = None
         self._fileName   = None
         self._lineNumber = None
         self._references = []
 
+    # Define a GUID
+    # value:      Value of the GUID
+    # fileName:   File containing the definition
+    # lineNumber: Line number containing the definition
     def Define(self, value, fileName, lineNumber):
         self._value      = value
         self._fileName   = fileName
         self._lineNumber = lineNumber
 
+    # Add a refernce to the GUID
+    # fileName:   File containing the reference
+    # lineNumber: Line number containing the reference
     def Reference(self, fileName, lineNumber):
         self._references.append({'fileName': fileName, 'lineNumber': lineNumber})
 
@@ -408,34 +415,164 @@ class GUID:
     def _get_references(self):
         return self._references
 
-    # Define the properties
+    # Properties
     value       = property(fget = _get_value)
     fileName    = property(fget = _get_fileName)
     lineNumber  = property(fget = _get_lineNumber)
     references  = property(fget = _get_references)
 
 # Add a new guid definition
-# guid:      GUID being defined
-# value:     Value of GUID
-# db:        Dictionary in which GUID belongs
-# definer:   File making the definition
-# line:      Line number of the definitioh
+# guid:       GUID being defined
+# value:      Value of GUID
+# db:         Dictionary in which GUID belongs
+# fileName:   File containing the definition
+# lineNumber: Line number containing the definition
 # returns nothing
-def AddGuidDefinition(guid, value, db, definer, line):
+def DefineGuid(guid, value, db, fileName, lineNumber):
     if not guid in db:
         db[guid] = GUID()
-    db[guid].Define(value, definer, line)
+    db[guid].Define(value, fileName, lineNumber)
 
 # Add a new guid definition
-# guid:      GUID being referenced
-# db:        Dictionary in which GUID belongs
-# rferer:    File making the reference
-# line:      Line number of the reference
+# guid:       GUID being referenced
+# db:         Dictionary in which GUID belongs
+# fileName:   File containing the reference
+# lineNumber: Line number containing the reference
 # returns nothing
-def AddGuidReference(guid, db, referer, line):
+def ReferenceGuid(guid, db, fileName, lineNumber):
     if not guid in db:
         db[guid] = GUID()
-    db[guid].Reference(referer, line)
+    db[guid].Reference(fileName, lineNumber)
+
+class PCD:
+
+    # Constructor
+    def __init__(self):
+        self._default    = None
+        self._datum      = None
+        self._token      = None
+        self._definer    = None
+        self._value      = None
+        self._size       = None
+        self._overrider  = None
+        self._references = []
+
+    # Define a PCD
+    # default:    Default value of the PCD
+    # datum:      Data type of the PCD
+    # token:      Token to be assigned to the PCD
+    # fileName:   File containing the definition
+    # lineNumber: Line number containing the definition
+    def Define(self, default, datum, token, fileName, lineNumber):
+        self._default    = default
+        self._datum      = datum
+        self._token      = token
+        self._definer    = {'fileName': fileName, 'lineNumber': lineNumber}
+
+    # Overide a PCD
+    # value:      New default value of the PCD
+    # datum:      New data type of the PCD (only valid is the defined type is VOID*)
+    # size:       Size of the PCD          (only valid is the defined type is VOID*)
+    # fileName:   File containing the override
+    # lineNumber: Line number containing the override
+    def Override(self, value, datum, size, fileName, lineNumber):
+        self._value      = value
+        self._datum      = datum
+        self._size       = size
+        self._overrider  = {'fileName': fileName, 'lineNumber': lineNumber}
+
+    # Add a refernce to the PCD
+    # fileName:   File containing the reference
+    # lineNumber: Line number containing the reference
+    def Reference(self, fileName, lineNumber):
+        self._references.append({'fileName': fileName, 'lineNumber': lineNumber})
+
+    # Getter for default property
+    def _get_default(self):
+        return self._default
+
+    # Getter for datum property
+    def _get_datum(self):
+        return self._datum
+
+    # Getter for token property
+    def _get_token(self):
+        return self._token
+
+    # Getter for definer property
+    def _get_definer(self):
+        return self._definer
+
+    # Getter for value property
+    def _get_value(self):
+        return self._value
+
+    # Getter for size property
+    def _get_size(self):
+        return self._size
+
+    # Getter for overrider property
+    def _get_overrider(self):
+        return self._overrider
+
+    # Getter for references property
+    def _get_references(self):
+        return self._references
+
+    # Properties
+    default     = property(fget = _get_default)
+    datum       = property(fget = _get_datum)
+    token       = property(fget = _get_token)
+    definer     = property(fget = _get_definer)
+    value       = property(fget = _get_value)
+    size        = property(fget = _get_size)
+    overrider   = property(fget = _get_overrider)
+    references  = property(fget = _get_references)
+
+# Define a PCD
+# space:      Namespace of PCD
+# name:       Name of PCD
+# default:    Default value for PCD
+# datum:      Data type for PCD
+# token:      Token number assigned to the PCD
+# fileName:   File containing the definition
+# lineNumber: Line number containing the definition
+# returns nothing
+def DefinePCD(space, name, default, datum, token, fileName, lineNumber):
+    global Pcds
+    pcd = space + '.' + name
+    if not pcd in Pcds:
+        Pcds[pcd] = PCD()
+    Pcds[pcd].Define(default, datum, token, fileName, lineNumber)
+
+# Override a PCD definition
+# space:      Namespace of PCD
+# name:       Name of PCD
+# default:    New default value for PCD
+# datum:      New data type for PCD
+# size:       Size of the PCD
+# fileName:   File containing the override
+# lineNumber: Line number containing the override
+# returns nothing
+def OverridePCD(space, name, default, datum, size, fileName, lineNumber):
+    global Pcds
+    pcd = space + '.' + name
+    if not pcd in Pcds:
+        Pcds[pcd] = PCD()
+    Pcds[pcd].Override(default, datum, size, fileName, lineNumber)
+
+# Reference a PCD
+# space:      Namespace of PCD
+# name:       Name of PCD
+# fileName:   File containing the reference
+# lineNumber: Line number containing the reference
+# returns nothing
+def ReferencePCD(space, name, fileName, lineNumber):
+    global Pcds
+    pcd = space + '.' + name
+    if not pcd in Pcds:
+        Pcds[pcd] = PCD()
+    Pcds[pcd].Reference(fileName, lineNumber)
 
 # Output an error message to STDERR
 # message: Message to display

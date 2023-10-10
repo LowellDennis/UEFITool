@@ -103,7 +103,7 @@ class DECParser(UEFIParser):
     def match_reGuids(self, match):
         name = match.group(1)
         guid = match.group(3)
-        gbl.AddGuidDefinition(name, guid, gbl.Guids, self.fileName, self.lineNumber)
+        gbl.DefineGuid(name, guid, gbl.Guids, self.fileName, self.lineNumber)
 
     # Handle a match in any of the PCD sections for rePcdDef
     # match: Results of regex match
@@ -115,7 +115,7 @@ class DECParser(UEFIParser):
         # Only process below if this matches a PCD  redefinition
         if match.group(4) == None or match.group(4) == '':
             return
-        gbl.Pcds['dec'][match.group(1)+'.'+match.group(2)] = (match.group(4), match.group(6), match.group(8))
+        gbl.DefinePCD(match.group(1), match.group(2), match.group(4), match.group(6), match.group(8), self.fileName, self.lineNumber)
 
     # Handle a match in the [Ppis] section
     # match: Results of regex match
@@ -123,7 +123,7 @@ class DECParser(UEFIParser):
     def match_rePpis(self, match):
         ppi  = match.group(1)
         guid = match.group(3)
-        gbl.AddGuidDefinition(ppi, guid, gbl.Ppis, self.fileName, self.lineNumber)
+        gbl.DefineGuid(ppi, guid, gbl.Ppis, self.fileName, self.lineNumber)
 
     # Handle a match in the [Protocols] section
     # match: Results of regex match
@@ -131,7 +131,7 @@ class DECParser(UEFIParser):
     def match_reProtocolsEqu(self, match):
         protocol = match.group(1)
         guid     = match.group(3)
-        gbl.AddGuidDefinition(protocol, guid, gbl.Protocols, self.fileName, self.lineNumber)
+        gbl.DefineGuid(protocol, guid, gbl.Protocols, self.fileName, self.lineNumber)
 
     ###########################################
     # Match handlers (only when inSubsection) #

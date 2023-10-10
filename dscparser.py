@@ -142,7 +142,7 @@ class DSCParser(UEFIParser):
     # returns nothing
     def directive_include(self, includeFile):
         def includeDSCFile(file):
-            gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
+            gbl.ReferenceSource(file, self.fileName, self.lineNumber)      # Indicate reference to included file
             if file in gbl.DSCs:
                     if Debug(SHOW_SKIPPED_DSCS):
                         print(f"{self.lineNumber}:Previously loaded:{file}")
@@ -194,7 +194,7 @@ class DSCParser(UEFIParser):
     # returns nothing
     def match_reLibraryClasses(self, match):
         file = match.group(3).replace('"', '')
-        gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
+        gbl.ReferenceSource(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
         gbl.INFs.append(file)
 
     # Handle a match in the [Packages] section for rePackages
@@ -202,7 +202,7 @@ class DSCParser(UEFIParser):
     # returns nothing
     def match_rePackages(self, match):
         file = match.group(1)
-        gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
+        gbl.ReferenceSource(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
         gbl.DECs.append(file)
 
     # Handle a match in one of the PCD sections
@@ -213,7 +213,7 @@ class DSCParser(UEFIParser):
         # Don't go on unless at lease group4 is defined
         if match.group(4) == None or match.group(4) == '':
             return
-        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(4), match.group(6), match.group(8))
+        gbl.OverridePCD(match.group(1), match.group(2), match.group(4), match.group(6), match.group(8), self.fileName, self.lineNumber)
 
     # Handle a match in one of the PCD sections
     # match: Results of regex match
@@ -227,19 +227,18 @@ class DSCParser(UEFIParser):
         for i in range(5, 15, 2):
             if match.group(i) and match.group(i) != '':
                 return
-        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(3), None, None)
+        gbl.ReferencePCD(match.group(1), match.group(2), self.fileName, self.lineNumber)
 
     # Handle a match in one of the PCD sections
     # match: Results of regex match
     # returns nothing
     def match_rePcdVal(self, match):
         # Can only get here if group1, group2, and group3 are defined
-        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(3), None, None)
+        gbl.OverridePCD(match.group(1), match.group(2), match.group(3), None, None, self.fileName, self.lineNumber)
 
     # Handle a match in one of the PCD sections
     # match: Results of regex match
     # returns nothing
-# Groups 1=>space, 2=>pcd, 3=>item1, 5=>optional item2, 7=>optional item3, 9=>optional item4, 11=>optional item5, 13=>optional item6
     def match_rePcdVpd(self, match):
         # Can only get here if group1, group2, and group3 are defined
         # Don't go in if group2 is a structure (has a '.' in it) or an a array (has a '[' in it)
@@ -249,7 +248,7 @@ class DSCParser(UEFIParser):
         for i in range(5, 9, 2):
             if match.group(i) and match.group(i) != '':
                 return
-        gbl.Pcds['dsc'][match.group(1)+'.'+match.group(2)] = (match.group(3), None, None)
+        gbl.OverridePCD(match.group(1), match.group(2), match.group(3), None, None, self.fileName, self.lineNumber)
 
     #################
     # Dump handlers #
