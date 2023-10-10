@@ -373,7 +373,7 @@ def AddSourceReference(reference, referer, line):
         Sources[reference] = Reference(referer, line)
 
 # Class for an source file references
-class GUIDDefinition:
+class GUID:
 
     # Constructor
     # fileName:   Filename where the list is found
@@ -423,7 +423,7 @@ class GUIDDefinition:
 # returns nothing
 def AddGuidDefinition(guid, value, db, definer, line):
     if not guid in db:
-        db[guid] = GUIDDefinition()
+        db[guid] = GUID()
     db[guid].Define(value, definer, line)
 
 # Output an error message to STDERR
