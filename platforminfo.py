@@ -299,7 +299,7 @@ class PlatformInfo:
                         lst.write(f"{source}\n")
                         lst2.write(f"{source}\n")
                         for ref in gbl.Sources[source].references:
-                            lst2.write(f"    REF - {ref['lineNumber']}:{ref['fileName']}\n")
+                            lst2.write(f"    ref: {ref['lineNumber']}:{ref['fileName']}\n")
 
         # Generate library list (if indicated)
         if not gbl.CommandLineResults.libraries:
