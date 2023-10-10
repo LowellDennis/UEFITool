@@ -114,9 +114,7 @@ class INFParser(UEFIParser):
     # returns nothing
     def match_reGuids(self, match):
         guid = match.group(1)
-        if not guid in gbl.Guids:
-            gbl.Guids[guid] = gbl.GUID()
-        gbl.Guids[guid].Reference(self.fileName, self.lineNumber)
+        gbl.AddGuidReference(guid, gbl.Guids, self.fileName, self.lineNumber)
 
     # Handle a match in the [Packages] section for rePackages
     # match: Results of regex match
@@ -136,18 +134,14 @@ class INFParser(UEFIParser):
     # returns nothing
     def match_rePpis(self, match):
         ppi = match.group(1)
-        if not ppi in gbl.Ppis:
-            gbl.Ppis[ppi] = gbl.GUID()
-        gbl.Ppis[ppi].Reference(self.fileName, self.lineNumber)
+        gbl.AddGuidReference(ppi, gbl.Ppis, self.fileName, self.lineNumber)
 
     # Handle a match in the [Ppis] section for rePpis
     # match: Results of regex match
     # returns nothing
-    def match_reProtocols(self, match):
+    def match_reProtocolsBar(self, match):
         protocol = match.group(1)
-        if not protocol in gbl.Protocols:
-            gbl.Protocols[protocol] = gbl.GUID()
-        gbl.Protocols[protocol].Reference(self.fileName, self.lineNumber)
+        gbl.AddGuidReference(protocol, gbl.Protocols, self.fileName, self.lineNumber)
 
     # Handle a match in the [Sources] section for rePackages
     # match: Results of regex match

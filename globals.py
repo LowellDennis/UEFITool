@@ -426,6 +426,17 @@ def AddGuidDefinition(guid, value, db, definer, line):
         db[guid] = GUID()
     db[guid].Define(value, definer, line)
 
+# Add a new guid definition
+# guid:      GUID being referenced
+# db:        Dictionary in which GUID belongs
+# rferer:    File making the reference
+# line:      Line number of the reference
+# returns nothing
+def AddGuidReference(guid, db, referer, line):
+    if not guid in db:
+        db[guid] = GUID()
+    db[guid].Reference(referer, line)
+
 # Output an error message to STDERR
 # message: Message to display
 # returns nothing
