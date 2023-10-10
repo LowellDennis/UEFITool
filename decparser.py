@@ -103,7 +103,7 @@ class DECParser(UEFIParser):
     def match_reGuids(self, match):
         name = match.group(1)
         guid = match.group(3)
-        gbl.Guids[name] = guid              # Overrite OK
+        gbl.AddGuidDefinition(name, guid, gbl.Guids, self.fileName, self.lineNumber)
 
     # Handle a match in any of the PCD sections for rePcdDef
     # match: Results of regex match
@@ -123,7 +123,7 @@ class DECParser(UEFIParser):
     def match_rePpis(self, match):
         ppi  = match.group(1)
         guid = match.group(3)
-        gbl.Ppis[ppi] = guid                # Overrite OK
+        gbl.AddGuidDefinition(ppi, guid, gbl.Ppis, self.fileName, self.lineNumber)
 
     # Handle a match in the [Protocols] section
     # match: Results of regex match
@@ -131,7 +131,7 @@ class DECParser(UEFIParser):
     def match_reProtocolsEqu(self, match):
         protocol = match.group(1)
         guid     = match.group(3)
-        gbl.Protocols[protocol] = guid      # Overrite OK
+        gbl.AddGuidDefinition(protocol, guid, gbl.Protocols, self.fileName, self.lineNumber)
 
     ###########################################
     # Match handlers (only when inSubsection) #

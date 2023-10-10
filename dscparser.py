@@ -142,7 +142,7 @@ class DSCParser(UEFIParser):
     # returns nothing
     def directive_include(self, includeFile):
         def includeDSCFile(file):
-            gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
+            gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
             if file in gbl.DSCs:
                     if Debug(SHOW_SKIPPED_DSCS):
                         print(f"{self.lineNumber}:Previously loaded:{file}")
@@ -194,7 +194,7 @@ class DSCParser(UEFIParser):
     # returns nothing
     def match_reLibraryClasses(self, match):
         file = match.group(3).replace('"', '')
-        gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
+        gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to INF file
         gbl.INFs.append(file)
 
     # Handle a match in the [Packages] section for rePackages
@@ -202,7 +202,7 @@ class DSCParser(UEFIParser):
     # returns nothing
     def match_rePackages(self, match):
         file = match.group(1)
-        gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
+        gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to DEC file
         gbl.DECs.append(file)
 
     # Handle a match in one of the PCD sections

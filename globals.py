@@ -338,39 +338,93 @@ SupportedArchitectures  = []
 # Determine if this is Windows OS
 isWindows  = 'WINDOWS' in platform.platform().upper()
 
-# Class for an Source list item
-class SourceItem:
+# Class for an source file references
+class Reference:
 
     # Constructor
     # fileName:   Filename where the list is found
     # lineNumber: Line number where the list starts
     def __init__(self, fileName, lineNumber):
         self._references = []
-        self.Append(fileName, lineNumber)
+        self.Reference(fileName, lineNumber)
 
     # Add an item to the apriori list
-    def Append(self, fileName, lineNumber):
+    def Reference(self, fileName, lineNumber):
         self._references.append({'fileName': fileName, 'lineNumber': lineNumber})
 
-    # Getter for fileName property
+    # Getter for references property
     def _get_references(self):
         return self._references
 
     # Define the properties
     references = property(fget = _get_references) 
 
-# Add a new refernce
+# Add a new source file reference
 # reference: File being referenced
 # refererer: File (or platform) making the reference)
 # line:      Line number of the reference
 #            (this will be None for references from the platform directory)
 # returns nothing
-def AddReference(reference, referer, line):
+def AddSourceReference(reference, referer, line):
     global Sources
     if reference in Sources:
-        Sources[reference].Append(referer, line)
+        Sources[reference].Reference(referer, line)
     else:
-        Sources[reference] = SourceItem(referer, line)
+        Sources[reference] = Reference(referer, line)
+
+# Class for an source file references
+class GUIDDefinition:
+
+    # Constructor
+    # fileName:   Filename where the list is found
+    # lineNumber: Line number where the list starts
+    def __init__(self):
+        self._value      = None
+        self._fileName   = None
+        self._lineNumber = None
+        self._references = []
+
+    def Define(self, value, fileName, lineNumber):
+        self._value      = value
+        self._fileName   = fileName
+        self._lineNumber = lineNumber
+
+    def Reference(self, fileName, lineNumber):
+        self._references.append({'fileName': fileName, 'lineNumber': lineNumber})
+
+    # Getter for value property
+    def _get_value(self):
+        return self._value
+
+    # Getter for fileName property
+    def _get_fileName(self):
+        return self._fileName
+
+    # Getter for lineNumber property
+    def _get_lineNumber(self):
+        return self._lineNumber
+
+    # Getter for references property
+    def _get_references(self):
+        return self._references
+
+    # Define the properties
+    value       = property(fget = _get_value)
+    fileName    = property(fget = _get_fileName)
+    lineNumber  = property(fget = _get_lineNumber)
+    references  = property(fget = _get_references)
+
+# Add a new guid definition
+# guid:      GUID being defined
+# value:     Value of GUID
+# db:        Dictionary in which GUID belongs
+# definer:   File making the definition
+# line:      Line number of the definitioh
+# returns nothing
+def AddGuidDefinition(guid, value, db, definer, line):
+    if not guid in db:
+        db[guid] = GUIDDefinition()
+    db[guid].Define(value, definer, line)
 
 # Output an error message to STDERR
 # message: Message to display

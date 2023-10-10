@@ -208,7 +208,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # returns nothing
     def directive_include(self, line):
         def includeHandler(file):
-            gbl.AddReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
+            gbl.AddSourceReference(file, self.fileName, self.lineNumber)      # Indicate reference to included file
             if file.lower().endswith(".dsc"):
                 if file in gbl.DSCs:
                     if Debug(SHOW_SKIPPED_DSCS):
@@ -438,7 +438,7 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     def match_reInf(self, match):
         # Check for Apriori
         inf = match.group(4)
-        gbl.AddReference(inf, self.fileName, self.lineNumber)       # Add reference to INF file
+        gbl.AddSourceReference(inf, self.fileName, self.lineNumber)       # Add reference to INF file
         if self.apriori:
             self.APRIORI[self.apriori].Append(inf)
             if Debug(SHOW_FV):

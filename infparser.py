@@ -109,6 +109,15 @@ class INFParser(UEFIParser):
     # Match handlers #
     ##################
 
+    # Handle a match in the [Ppis] section for rePpis
+    # match: Results of regex match
+    # returns nothing
+    def match_reGuids(self, match):
+        guid = match.group(1)
+        if not guid in gbl.Guids:
+            gbl.Guids[guid] = gbl.GUIDDefinition()
+        gbl.Guids[guid].Reference(self.fileName, self.lineNumber)
+
     # Handle a match in the [Packages] section for rePackages
     # match: Results of regex match
     # returns nothing
@@ -122,13 +131,31 @@ class INFParser(UEFIParser):
     def match_rePackages(self, match):
         DSCParser.match_rePackages(self, match)
 
+    # Handle a match in the [Ppis] section for rePpis
+    # match: Results of regex match
+    # returns nothing
+    def match_rePpis(self, match):
+        ppi = match.group(1)
+        if not ppi in gbl.Ppis:
+            gbl.Ppis[ppi] = gbl.GUIDDefinition()
+        gbl.Ppis[ppi].Reference(self.fileName, self.lineNumber)
+
+    # Handle a match in the [Ppis] section for rePpis
+    # match: Results of regex match
+    # returns nothing
+    def match_reProtocols(self, match):
+        protocol = match.group(1)
+        if not protocol in gbl.Protocols:
+            gbl.Protocols[protocol] = gbl.GUIDDefinition()
+        gbl.Protocols[protocol].Reference(self.fileName, self.lineNumber)
+
     # Handle a match in the [Sources] section for rePackages
     # match: Results of regex match
     # returns nothing
     def match_reSources(self, match):
         def AddSource(file):
             path = os.path.join(os.path.dirname(self.fileName), file).replace('\\', '/')
-            gbl.AddReference(path, self.fileName, self.lineNumber)
+            gbl.AddSourceReference(path, self.fileName, self.lineNumber)
         files = match.group(1)
         if '|' in files:
             AddSource(files.split('|')[0].lstrip())

@@ -60,7 +60,7 @@ class PlatformInfo:
     # returns nothing
     def __processDSCs__(self):
         # Processing starts with the platform DSC file in the platform directory
-        gbl.AddReference(self.dscFile, self.platform, None)
+        gbl.AddSourceReference(self.dscFile, self.platform, None)
         gbl.DSCs[self.dscFile] = DSCParser(self.dscFile)
 
     # Process the INF file(s)
@@ -112,7 +112,7 @@ class PlatformInfo:
     # returns nothing
     def __processFDFs__(self):
         # Processing starts with the platform DSC file in the platform directory
-        gbl.AddReference(self.fdfFile, self.platform, None)
+        gbl.AddSourceReference(self.fdfFile, self.platform, None)
         gbl.FDFs[self.fdfFile] = FDFParser(self.fdfFile)
 
     # Finds the base directory of the platform tree
@@ -318,21 +318,42 @@ class PlatformInfo:
             print(f"Generating ppis.lst ...")
             with open(os.path.join(self.platform, 'ppis.lst'), 'w') as lst:
                 for ppi in self.__sortedKeys__(gbl.Ppis):
-                    lst.write(f"{ppi} = {gbl.Ppis[ppi]}\n")
+                    this = gbl.Ppis[ppi]
+                    refs = gbl.Ppis[ppi].references
+                    lst.write(f'{ppi}\n')
+                    lst.write(f"    value:   {this.value}\n")
+                    lst.write(f'    defined: {this.lineNumber}:{this.fileName}\n')
+                    if refs:
+                        for ref in refs:
+                            lst.write(f'    ref:     {ref["lineNumber"]}:{ref["fileName"]}\n')                            
 
         # Generate Protocol list (if indicated)
         if not gbl.CommandLineResults.protocols:
             print(f"Generating protocols.lst ...")
             with open(os.path.join(self.platform, 'protocols.lst'), 'w') as lst:
                 for protocol in self.__sortedKeys__(gbl.Protocols):
-                    lst.write(f"{protocol} = {gbl.Protocols[protocol]}\n")
+                    this = gbl.Protocols[protocol]
+                    refs = gbl.Protocols[protocol].references
+                    lst.write(f'{protocol}\n')
+                    lst.write(f"    value:   {this.value}\n")
+                    lst.write(f'    defined: {this.lineNumber}:{this.fileName}\n')
+                    if refs:
+                        for ref in refs:
+                            lst.write(f'    ref:     {ref["lineNumber"]}:{ref["fileName"]}\n')                            
 
         # Generate Guid list (if indicated)
         if not gbl.CommandLineResults.guids:
             print(f"Generating guids.lst ...")
             with open(os.path.join(self.platform, 'guids.lst'), 'w') as lst:
                 for guid in self.__sortedKeys__(gbl.Guids):
-                    lst.write(f"{guid} = {gbl.Guids[guid]}\n")
+                    this = gbl.Guids[guid]
+                    refs = gbl.Guids[guid].references
+                    lst.write(f'{guid}\n')
+                    lst.write(f"    value:   {this.value}\n")
+                    lst.write(f'    defined: {this.lineNumber}:{this.fileName}\n')
+                    if refs:
+                        for ref in refs:
+                            lst.write(f'    ref:     {ref["lineNumber"]}:{ref["fileName"]}\n')                            
 
         # Generate PCD list (if indicated)
         if not gbl.CommandLineResults.pcds:
