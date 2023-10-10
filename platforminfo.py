@@ -306,12 +306,11 @@ class PlatformInfo:
             print(f"Generating libraries.lst ...")
             with open(os.path.join(self.platform, 'libraries.lst'), 'w') as lst:
                 for library in self.__sortedKeys__(gbl.INFs):
-                    ver = ""
+                    lst.write(f'{library}\n')
                     for item in gbl.INFs[library].DEFINES:
-                        if item['macro'] == "VERSION_STRING":
-                            ver = ' V' + item['value']
-                            break
-                    lst.write(f"{library}{ver}\n")
+                        for define in ("FILE_GUID", "LIBRARY_CLASS", "MODULE_TYPE", "VERSION_STRING"):
+                            if item['macro'] == define:
+                                lst.write(f'    {define}: {item["value"]}\n')
 
         # Generate PPI list (if indicated)
         if not gbl.CommandLineResults.ppis:
