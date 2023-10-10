@@ -286,7 +286,7 @@ class PlatformInfo:
                 if item in gbl.Apriori:
                     print(f"Generating apriori_{item.lower()}.lst ...")
                     with open(os.path.join(self.platform, f'apriori_{item.lower()}.lst'), 'w') as lst:
-                        lst.write(f"From {gbl.Apriori[item].fileName} starting at line {gbl.Apriori[item].lineNumber}\n")
+                        lst.write(f"Define: {gbl.Apriori[item].lineNumber}:{gbl.Apriori[item].fileName}\n")
                         for i, apriori in enumerate(gbl.Apriori[item].list):
                             lst.write(f"{i+1}. {apriori}\n")
 
