@@ -339,10 +339,11 @@ class PlatformInfo:
                         lst.write(f'    DepEx:          {this.depex}\n')
                     dependency = self.__dependancies__(library)
                     if dependency:
-                        lst.write(f'    DEPENDENCY:     ')
+                        lst.write(f'    Dependency:     ')
+                        space = ''
                         for i, depends in enumerate(dependency):
-                            lst.write(f'{i+1}. {depends}\n                    ')
-                        lst.write('\n')
+                            lst.write(f'{space}{i+1}. {depends}\n')
+                            space = '                    '
 
         # Generate PPI list (if indicated)
         if not gbl.CommandLineResults.ppis:
