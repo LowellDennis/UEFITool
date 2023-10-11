@@ -17,7 +17,7 @@ HPE UEFI Utility
     * You can get it [here](https://www.python.org/)
 
 ### How do I use this tool? ###
-
+'''
 usage: uefitool.py [-h] [-m] [-s] [-p] [-a] [-i] [-r] [-g] [-l] [--dump] [-n | -t | -v | -f | -d [type ...]] path
 
 HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V0.1
@@ -42,7 +42,7 @@ options:
   -f, --full            turn on full debug output
   -d [type ...], --debug [type ...]
                         turn on debug to a specific level (64-bit integer, use 0x prefix to specify in hex)
-
+'''
 ### Invocation ###
 This is very simple.
 
@@ -61,6 +61,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * pdcs.lst        - PCDs      used, defined items, where defined, and where referenced
 
   NOTE: Each of these can be turned off using command line options if desired.
+
   NOTE: Apriori fiels may not be present if no apriori lists are defined in the FDF files
 
 ### There is debug output available to be viewed as the files are processed ###
