@@ -12,7 +12,7 @@ from debug import DebugLevel
 ###################
 # Program version #
 ###################
-ProgramVersion = 0.2
+ProgramVersion = 0.4
 
 ################################
 # Regular expression constants #

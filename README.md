@@ -49,17 +49,19 @@ This is very simple.
 python uefitool.py <path-to-HPE-platform-PKG-driectory>
 
 ### This will generate the following files in the indicated HPE platform PKG directory ###
-* macros.lst      - List of all of the macros used in processing the UEFI files and their FINAL values 
-* apriori_pei.lst - The PEI apriori list for the platform
-* apriori_dxe.lst - The DXE apriori list for the platform
-* sources.lst     - List of all of the source files used by the platorm
-* libraries.lst   - List of all of the libraries used by the platform
-* ppis.lst        - List of all of the PPIs used by the platform (and their values)
-* protocols.lst   - List of all of the Protocols used by the platform (and their values)
-* guids.lst       - List of all of the GUIDs used by the platform (and their values)
-* pdcs.lst        - List of all of the PCDs used by the platform (and the default value, their type, and their id)
+* macros.lst      - Macros used in processing the UEFI files and their FINAL values
+* apriori_pei.lst - PEI apriori list for the platform and where they are defined
+* apriori_dxe.lst - DXE apriori list for the platform and where they are defined
+* sources.lst     - Source files used by the platorm
+* references.lst  - Source files used and where they are referenced by other files
+* libraries.lst   - Libraries used, where defined, with useful fields and dependencies
+* ppis.lst        - PPIs      used, their values,  where defined, and where referenced
+* protocols.lst   - Protocols used, their values,  where defined, and where referenced
+* guids.lst       - GUIDs     used, their values,  where defined, and where referenced
+* pdcs.lst        - PCDs      used, defined items, where defined, and where referenced
 
   NOTE: Each of these can be turned off using command line options if desired.
+  NOTE: Apriori fiels may not be present if no apriori lists are defined in the FDF files
 
 ### There is debug output available to be viewed as the files are processed ###
 * -n or --nominal - Shows each filename as it is being processed
@@ -77,5 +79,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 ### Version History ###
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
-| V0.1	  | Original Release                                                                       |
+| V0.4    | Updated output files to include more useful information                                |
+| V0.3	  | Generated output files and is controlled by command line parameters                    |
 | V0.2	  | Updates to support Gen12 and Linux                                                     |
+| V0.1	  | Original Release                                                                       |
