@@ -17,7 +17,7 @@ HPE UEFI Utility
     * You can get it [here](https://www.python.org/)
 
 ### How do I use this tool? ###
-'''
+```
 usage: uefitool.py [-h] [-m] [-s] [-p] [-a] [-i] [-r] [-g] [-l] [--dump] [-n | -t | -v | -f | -d [type ...]] path
 
 HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V0.1
@@ -42,7 +42,7 @@ options:
   -f, --full            turn on full debug output
   -d [type ...], --debug [type ...]
                         turn on debug to a specific level (64-bit integer, use 0x prefix to specify in hex)
-'''
+```
 ### Invocation ###
 This is very simple.
 
