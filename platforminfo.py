@@ -333,8 +333,10 @@ class PlatformInfo:
                     lst.write(f'    FILE_GUID:      {this.file_guid}\n')
                     lst.write(f'    MODULE_TYPE:    {this.module_type}\n')
                     lst.write(f'    LIBRARY_CLASS:  {this.library_class}\n')
-                    lst.write(f'    VERSION_STRING: {this.version_string}\n')
-                    lst.write(f'    DepEx:          {this.depex}\n')
+                    if this.version_string:
+                        lst.write(f'    VERSION_STRING: {this.version_string}\n')
+                    if this.depex:
+                        lst.write(f'    DepEx:          {this.depex}\n')
                     dependency = self.__dependancies__(library)
                     if dependency:
                         lst.write(f'    DEPENDENCY:     ')
