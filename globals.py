@@ -361,6 +361,62 @@ class Reference:
     # Properties
     references = property(fget = _get_references) 
 
+# Class for an source file references
+class INF:
+
+    # Constructor
+    # fileName: File in which INF is defined
+    def __init__(self, fileName):
+        self._fileName       = fileName
+        self._file_guid      = None
+        self._library_class  = None
+        self._module_type    = None
+        self._version_string = None
+        self._depex          = None
+        self._parser         = None
+
+    def SetItem(self, item, value):
+        attr = '_' + item.lower()
+        if hasattr(self, attr):
+            setattr(self, attr, value)
+
+    # Getter for base_name property
+    def _get_fileName(self):
+        return self._fileName
+
+    # Getter for file_guid property
+    def _get_file_guid(self):
+        return self._file_guid
+
+    # Getter for library_class property
+    def _get_library_class(self):
+        return self._library_class
+
+    # Getter for module_type property
+    def _get_module_type(self):
+        return self._module_type
+
+    # Getter for version_string property
+    def _get_version_string(self):
+        return self._version_string
+
+    # Getter for depex property
+    def _get_depex(self):
+        return self._depex
+
+    # Getter for parser property
+    def _get_parser(self):
+        return self._parser
+
+    # Properties
+    fileName       = property(fget = _get_fileName) 
+    file_guid      = property(fget = _get_file_guid) 
+    library_class  = property(fget = _get_library_class) 
+    module_type    = property(fget = _get_module_type) 
+    version_string = property(fget = _get_version_string) 
+    depex          = property(fget = _get_depex) 
+    parser         = property(fget = _get_parser) 
+
 # Add a new source file reference
 # reference: File being referenced
 # refererer: File (or platform) making the reference)

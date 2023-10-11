@@ -96,6 +96,12 @@ class PlatformInfo:
                 continue
             gbl.INFs[name] = inf = gbl.INF(file)
             inf.SetItem('parser', this)
+            if bool(this.DEPEX):
+                depex = ''
+                for item in this.DEPEX:
+                    items = item['depex'].split()
+                    depex += ' '.join(items) + ' '
+                inf.SetItem('depex', depex.rstrip())
             for define in ("FILE_GUID", "LIBRARY_CLASS", "MODULE_TYPE", "VERSION_STRING"):
                 value = GetDefinedValue(this.DEFINES, define)
                 if value:
@@ -328,6 +334,7 @@ class PlatformInfo:
                     lst.write(f'    MODULE_TYPE:    {this.module_type}\n')
                     lst.write(f'    LIBRARY_CLASS:  {this.library_class}\n')
                     lst.write(f'    VERSION_STRING: {this.version_string}\n')
+                    lst.write(f'    DepEx:          {this.depex}\n')
                     dependency = self.__dependancies__(library)
                     if dependency:
                         lst.write(f'    DEPENDENCY:     ')
@@ -435,7 +442,7 @@ class PlatformInfo:
             return dependency
         dependency = []
         dependency = AddDependencies(name, dependency)
-        return dependency
+        return dependency[1:]
 
     ##################
     # Public methods #
