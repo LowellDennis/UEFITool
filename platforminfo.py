@@ -213,14 +213,15 @@ class PlatformInfo:
         # Move build_old.py back to build.py
         shutil.copyfile(old, build)
         os.remove(old)
-        return err
+        out = out.decode()
+        err = err.decode()
+        return out if 'UEFITool DumpInfo Start' in out else err
 
     # Process the spoofed output
     # out: output of spoofed run of build.py
     # returns nothing
     def __processOutput__(self, out):
         # Convert output to ascii and split into lines
-        out = out.decode()
         lines = out.split('\r\n' if gbl.isWindows else '\n')
         # Find UEFITool spoofed information
         for i, l in enumerate(lines):
