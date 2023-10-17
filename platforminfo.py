@@ -4,6 +4,7 @@
 import os
 import shutil
 import sys
+import time
 
 # Local modules
 from   debug      import *
@@ -173,14 +174,15 @@ class PlatformInfo:
     # Note: build.py is returned to its previous state afterwards
     def __spoofBuild__(self):
         def GetOutput(command):
-            out  = os.path.join(gbl.Worktree, 'uefitool.out')
+            out  = os.path.join(gbl.Worktree.replace('/', '\\'), 'uefitool.out')
             os.system(f'{command} > {out} 2>&1')
             with open(out, 'r') as dat:
                 results = dat.readlines()
+            time.sleep(2)
             os.remove(out)
             return results
         def GetWindowsOutput():
-            cmd = f'hpbuild.bat -P {gbl.Macros["PLATFORM"]} -B DEBUG'
+            cmd = f'hpbuild.bat -P {gbl.Macros["PLATFORM"]} -b DEBUG'
             out = GetOutput(cmd)
             return out
         def GetLinuxOutput():
