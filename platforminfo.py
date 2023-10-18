@@ -269,12 +269,13 @@ class PlatformInfo:
         for i in range(envStart, envEnd):
             # Get environment variable and its value
             env, value = out[i].strip().split('=', 1)
-            # Ignore the following items
-            if env.upper() in ['CONTAINER', 'DISPLAY', 'HOME', 'OLDPWD', 'PWD', 'TERM']:
-                continue
             # See if it is already set and is the same
             if env in os.environ and os.environ[env] == value:
                 continue
+            # Don't update the following items
+            if env.upper() in ['CONTAINER', 'DISPLAY', 'HOME', 'OLDPWD', 'PWD', 'TERM', 'TZ']:
+                continue
+            # Add new/updated macro
             result = gbl.SetMacro(env, value.replace('\\', '/'))
             if Debug(SHOW_MACRO_DEFINITIONS):
                 print(f'{result}')
