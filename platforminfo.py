@@ -3,7 +3,6 @@
 # Standard python modules
 import os
 import shutil
-import subprocess
 import sys
 
 # Local modules
@@ -173,7 +172,30 @@ class PlatformInfo:
     # returns output from spoofed build.by usage
     # Note: build.py is returned to its previous state afterwards
     def __spoofBuild__(self):
-        # Directories and filenames of interest
+        def GetOutput(command):
+            out  = os.path.join(gbl.Worktree, 'uefitool.out')
+            os.system(f'{command} > {out} 2>&1')
+            with open(out, 'r') as dat:
+                results = dat.readlines()
+            os.remove(out)
+            return results
+        def GetWindowsOutput():
+            cmd = f'hpbuild.bat -P {gbl.Macros["PLATFORM"]} -B DEBUG'
+            out = GetOutput(cmd)
+            return out
+        def GetLinuxOutput():
+            usr       = os.environ['HOME']
+            container = 'hub.docker.hpecorp.net/hpe-rom-team/gnext'
+            cmd       = f'cd {gbl.Worktree} && ./hpbuild.sh -P {gbl.Macros["PLATFORM"]} -b DEBUG'
+            script    = os.path.join(gbl.Worktree, 'uefitool.sh')
+            with open(script, 'w') as scr:
+                scr.write('#!/bin/bash\n')
+                scr.write(f'sudo docker run --rm -it --privileged -v {gbl.Worktree}:{gbl.Worktree} -v  {usr}/.cache:/ccache -e "CCACHE_DIR=/ccache" {container} /bin/bash -c "{cmd}"\n')
+            os.system(f'chmod +x {script}')
+            out       = GetOutput(script)
+            os.remove(script)
+            return    out
+      # Directories and filenames of interest
         tgtDir = gbl.JoinPath(gbl.Worktree, 'Edk2/BaseTools/Source/Python/build')
         build  = gbl.JoinPath(tgtDir, 'build.py')
         old    = gbl.JoinPath(tgtDir, 'build_old.py')
@@ -206,25 +228,18 @@ class PlatformInfo:
                         b.write("    DumpInfo()\n")
                     line = o.readline()
         # Execute spoof build
-        script   = "hpbuild.bat" if gbl.isWindows else 'source hpbuild.sh'
-        cmd    = f'{script} -P {os.environ["PLATFORM"]} -b DEBUG'
-        proc     = subprocess.Popen(cmd , shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
+        out = GetWindowsOutput() if gbl.isWindows else GetLinuxOutput()
         # Move build_old.py back to build.py
         shutil.copyfile(old, build)
         os.remove(old)
-        out = out.decode()
-        err = err.decode()
-        return out if 'UEFITool DumpInfo Start' in out else err
+        return out
 
     # Process the spoofed output
     # out: output of spoofed run of build.py
     # returns nothing
     def __processOutput__(self, out):
-        # Convert output to ascii and split into lines
-        lines = out.split('\r\n' if gbl.isWindows else '\n')
         # Find UEFITool spoofed information
-        for i, l in enumerate(lines):
+        for i, l in enumerate(out):
             if not 'UEFITool DumpInfo' in l:
                 continue
             if ' Start' in l:
@@ -238,14 +253,14 @@ class PlatformInfo:
         else:
             gbl.Error('Spoof output not as expected ... exiting!')
             sys.exit(3)
-        # Loop throgh command line
+        # Loop through command line
         i = cmdStart
         while i < cmdEnd:
             # Look for -D options (define)
-            if lines[i].strip() == '-D':
+            if out[i].strip() == '-D':
                 # Get and save definition
                 i += 1
-                tokens = lines[i].strip().split('=', 1)
+                tokens = out[i].strip().split('=', 1)
                 result = gbl.SetMacro(tokens[0], '' if len(tokens) < 2 else tokens[1].replace('\\', '/'))
                 if Debug(SHOW_MACRO_DEFINITIONS):
                     print(f'{result}')
@@ -253,7 +268,10 @@ class PlatformInfo:
         # Loop through environment
         for i in range(envStart, envEnd):
             # Get environment variable and its value
-            env, value = lines[i].strip().split('=', 1)
+            env, value = out[i].strip().split('=', 1)
+            # Ignore the following items
+            if env.upper() in ['CONTAINER', 'DISPLAY', 'HOME', 'OLDPWD', 'PWD', 'TERM']:
+                continue
             # See if it is already set and is the same
             if env in os.environ and os.environ[env] == value:
                 continue
@@ -268,6 +286,9 @@ class PlatformInfo:
         # Set of the library package path
         paths     = gbl.Macros["PACKAGES_PATH"]
         gbl.Paths = paths.split(";" if gbl.isWindows else ":")
+        edk2plat  = gbl.JoinPath(gbl.Worktree, 'Edk2-Platforms')
+        if not edk2plat in gbl.Paths:
+            gbl.Paths.append(edk2plat)
 
         # Parse all of the files
         for name, handler in [('DSC', self.__processDSCs__), ('INF', self.__processINFs__), ('DEC', self.__processDECs__), ("FDF", self.__processFDFs__)]:
