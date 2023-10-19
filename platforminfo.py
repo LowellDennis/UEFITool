@@ -174,7 +174,8 @@ class PlatformInfo:
     # Note: build.py is returned to its previous state afterwards
     def __spoofBuild__(self):
         def GetOutput(command):
-            out  = os.path.join(gbl.Worktree.replace('/', '\\'), 'uefitool.out')
+            worktree = gbl.Worktree.replace('/', '\\') if gbl.isWindows else gbl.Worktree
+            out  = os.path.join(worktree, 'uefitool.out')
             os.system(f'{command} > {out} 2>&1')
             with open(out, 'r') as dat:
                 results = dat.readlines()
@@ -186,18 +187,29 @@ class PlatformInfo:
             out = GetOutput(cmd)
             return out
         def GetLinuxOutput():
-            usr       = os.environ['HOME']
-            container = 'hub.docker.hpecorp.net/hpe-rom-team/gnext'
-            cmd       = f'cd {gbl.Worktree} && ./hpbuild.sh -P {gbl.Macros["PLATFORM"]} -b DEBUG'
+            import socket
             script    = os.path.join(gbl.Worktree, 'uefitool.sh')
-            with open(script, 'w') as scr:
-                scr.write('#!/bin/bash\n')
-                scr.write(f'sudo docker run --rm -it --privileged -v {gbl.Worktree}:{gbl.Worktree} -v  {usr}/.cache:/ccache -e "CCACHE_DIR=/ccache" {container} /bin/bash -c "{cmd}"\n')
+            # Take care of special case
+            host      = socket.gethostname()
+            if host == 'arm-vm-docker1':
+                with open(script, 'w') as scr:
+                    scr.write('#!/bin/bash\n')
+                    if gbl.Macros['PLATFORM'] == 'R12':
+                        scr.write(f'/home/sysadmin/run-docker.sh\n')
+                    else:
+                        scr.write(f'{gbl.Worktree}/nvidia_r13_docker.sh\n')
+            else:
+                usr       = os.environ['HOME']
+                container = 'hub.docker.hpecorp.net/hpe-rom-team/gnext'
+                cmd       = f'cd {gbl.Worktree} && ./hpbuild.sh -P {gbl.Macros["PLATFORM"]} -b DEBUG'
+                with open(script, 'w') as scr:
+                    scr.write('#!/bin/bash\n')
+                    scr.write(f'sudo docker run --rm -it --privileged -v {gbl.Worktree}:{gbl.Worktree} -v  {usr}/.cache:/ccache -e "CCACHE_DIR=/ccache" {container} /bin/bash -c "{cmd}"\n')
             os.system(f'chmod +x {script}')
             out       = GetOutput(script)
             os.remove(script)
             return    out
-      # Directories and filenames of interest
+        # Directories and filenames of interest
         tgtDir = gbl.JoinPath(gbl.Worktree, 'Edk2/BaseTools/Source/Python/build')
         build  = gbl.JoinPath(tgtDir, 'build.py')
         old    = gbl.JoinPath(tgtDir, 'build_old.py')
