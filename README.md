@@ -77,6 +77,18 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 
   NOTE: dump is HUGE
 
+### Creating the Windows and Linux executables using PyInstaller
+Starting with V0.6 of this repo, Windows and Linux executables are being made available.
+
+These are generated using the python pyinstaller module.
+
+To generate these executables the following will need to be executed on Windows AND Linux
+```
+    python3 -m PyInstaller uefitool.py
+```
+* For Windows, the executable is dist/uefitool.exe
+* For Linux,   the executable is dist/uefitool/uefitool
+
 ### Version History ###
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
