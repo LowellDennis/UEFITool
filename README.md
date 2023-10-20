@@ -20,7 +20,7 @@ HPE UEFI Utility
 ```
 usage: uefitool.py [-h] [-m] [-s] [-p] [-a] [-i] [-r] [-g] [-l] [--dump] [-n | -t | -v | -f | -d [type ...]] path
 
-HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V0.1
+HPE EDKII UEFI DSC/INF/DEC/FDF Processing Tool: V0.6
 
 positional arguments:
   path                  path to platform directory (default is current directory
@@ -52,7 +52,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 * macros.lst      - Macros used in processing the UEFI files and their FINAL values
 * apriori_pei.lst - PEI apriori list for the platform and where they are defined
 * apriori_dxe.lst - DXE apriori list for the platform and where they are defined
-* sources.lst     - Source files used by the platorm
+* sources.lst     - Source files used by the platform
 * references.lst  - Source files used and where they are referenced by other files
 * libraries.lst   - Libraries used, where defined, with useful fields and dependencies
 * ppis.lst        - PPIs      used, their values,  where defined, and where referenced
@@ -62,7 +62,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 
   NOTE: Each of these can be turned off using command line options if desired.
 
-  NOTE: Apriori fiels may not be present if no apriori lists are defined in the FDF files
+  NOTE: Apriori files will not be present if not defined in the FDF files.
 
 ### There is debug output available to be viewed as the files are processed ###
 * -n or --nominal - Shows each filename as it is being processed
