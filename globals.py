@@ -281,7 +281,7 @@ reFile                 = r'^FILE\s*([^=\s]+)\s*=\s*([^\s\{]+)\s*([^\{]+)?\{$'
 
 # Regular expression for matching lines with format "GUIDED [guid] {"
 # Groups 1=>optional guid, 2=>{
-reGuided              = r'^GUIDED\s+([^\s\{]+)?\s*\{$'
+reGuided              = r'^GUIDED\s+([^\{]+)?\{$'
 
 # Regular expression for matching lines with format "INF [options] inf"
 # Groups 1=>optional options, 2=>inf

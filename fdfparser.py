@@ -396,16 +396,6 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # match: Results of regex match
     # returns nothing
     def match_reFile(self, match):
-        def HandleOptionValue(token, msg):
-            value  = token
-            # Get the saves option
-            token  = self.file['options'][-1]
-            # Save the option and value
-            self.file['options'][-1]={'option': token, 'value': value}
-            if Debug(SHOW_FV):
-                msg += f" {token}={value}"
-            # Nothing else is expected now
-            return (msg, None)
         # Previous file descriptor must have been completes
         if not self.file == None:
             self.ReportError('Previous file descriptor not terminated')
@@ -423,11 +413,19 @@ class FDFParser(UEFIParser):   #debug,        regularExpression(s),             
     # match: Results of regex match
     # returns nothing
     def match_reGuided(self, match):
-        # Previous guidede descriptor list must have been completed
+        # Previous guided descriptor list must have been completed
         if not self.guided == None:
             self.ReportError('Previous guided descriptor not terminated')
             return
-        self.guided = { 'guid': match.group(1)}
+        guid = options = None
+        if match.group(1):
+            items   = match.group(1).split(' ', 1)
+            guid    = items[0]
+            if len(items) > 1:
+                options = self.__getOptions__(items[1])
+        self.guided = { 'guid': guid }
+        if options:
+            self.guided['options'] = options
         if Debug(SHOW_FV):
             print(f'{self.lineNumber}:GUIDED {"" if match.group(1) == None else match.group(1)}')
             print(f'{self.lineNumber}:Entering guided descriptor')
