@@ -80,6 +80,7 @@ python uefitool.py <path-to-HPE-platform-PKG-driectory>
 ### Version History ###
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
+| V0.6    | Correctred handling of reGUIDED, added executables to repo (PyInstaller)               |
 | V0.5    | Corrected execution in Windows and Linux for Gen11 and Gen12 (no Gen12 Linux yet)      |
 | V0.4    | Updated output files to include more useful information                                |
 | V0.3	  | Generated output files and is controlled by command line parameters                    |
