@@ -1,4 +1,7 @@
 .history/
 __pycache__/
 .vscode/
+build/
+dist/uefitool/_internal/*
 *.pyc
+uefitool.spec
