@@ -13,7 +13,7 @@ from   platforminfo import PlatformInfo
 ################
 ProcessCommandLine()
 platform = os.getcwd() if not gbl.CommandLineResults.path else gbl.CommandLineResults.path
-print(f'Processing {platform} as HPE platform directory')
+print(f'HPE Platform Directory: {platform}')
 PlatformInfo(platform.replace('\\', '/'))
 
 ###########
