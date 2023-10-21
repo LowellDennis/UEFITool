@@ -111,6 +111,8 @@ def ProcessCommandLine():
                     help='path to platform directory (default is current directory')
     # Parse the command line
     gbl.CommandLineResults = CommandLine.parse_args()
+    # Show header
+    print(CommandLine.description)
     # Handle results of command line parsing
     if gbl.CommandLineResults.nominal:
         SetDebug(DEBUG_MINIMUM)
