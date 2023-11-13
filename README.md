@@ -86,12 +86,13 @@ To generate these executables the following will need to be executed on Windows 
 ```
     python3 -m PyInstaller uefitool.py
 ```
-* For Windows, the executable is dist/uefitool.exe
+* For Windows, the executable is dist/uefitool/uefitool.exe
 * For Linux,   the executable is dist/uefitool/uefitool
 
 ### Version History ###
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
+| V0.7    | Fixed error where exit is not found                                                    |
 | V0.6    | Correctred handling of reGUIDED, added executables to repo (PyInstaller)               |
 | V0.5    | Corrected execution in Windows and Linux for Gen11 and Gen12 (no Gen12 Linux yet)      |
 | V0.4    | Updated output files to include more useful information                                |
