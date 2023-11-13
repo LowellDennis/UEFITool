@@ -2,6 +2,7 @@
 
 # Standard python modules
 import argparse
+import sys
 
 # Local modules
 from   debug   import *
@@ -17,7 +18,7 @@ class CommandLineParser(argparse.ArgumentParser):
   def error(self, msg):
       message = self.format_usage() + self.prog + ': error: ' + msg
       gbl.Error(message)
-      exit(1)
+      sys.exit(1)
 
 # This will allow user to input debug level
 # as decimal or hexadecimal (with leading 0x)
