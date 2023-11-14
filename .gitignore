@@ -2,6 +2,6 @@
 __pycache__/
 .vscode/
 build/
-dist/uefitool/_internal/*
+dist/uefitool/_internal/
 *.pyc
 uefitool.spec
