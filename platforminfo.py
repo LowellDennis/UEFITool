@@ -322,7 +322,8 @@ class PlatformInfo:
         for item in  [ 'DSC', 'DEC', 'FDF']:
             spaces = ' ' * (15 - len(item))
             print(f"Platform {item}:{spaces}{getattr(self, item.lower() + 'File')}")
-        print(f"Supported Architectures: {','.join(gbl.SupportedArchitectures)}")
+        if gbl.SupportedArchitectures:
+            print(f"Supported Architectures: {','.join(gbl.SupportedArchitectures)}")
         values = []
         total  = 0
         for i, item in  enumerate([ 'DSC', 'INF', 'DEC', 'FDF']):
