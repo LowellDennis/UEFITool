@@ -88,7 +88,7 @@ To generate these executables the following will need to be executed on Windows 
 ```
 * For Windows, the executable is dist/uefitool/uefitool.exe
 * For Linux,   the executable is dist/uefitool/uefitool
-* To use executable, add <tool-install-directory>/dist/uefitool/uefitool to the PATH
+* To use executable, add <tool-install-directory>/EFITool/dist/uefitool/uefitool to the PATH
 
 ### Version History ###
 | Version | Explanation                                                                            |
