@@ -9,7 +9,7 @@ HPE UEFI Utility
 
 * To get the source use:
 ```
-    cd ~
+    cd <tool-install-directory>
     git clone https://github.com/LowellDennis/UEFITools.git
 ```
 
@@ -88,10 +88,13 @@ To generate these executables the following will need to be executed on Windows 
 ```
 * For Windows, the executable is dist/uefitool/uefitool.exe
 * For Linux,   the executable is dist/uefitool/uefitool
+* To use executable, add <tool-install-directory>/dist/uefitool/uefitool to the PATH
 
 ### Version History ###
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
+| V0.8    | - Fixed failure when run from UEFI base directory (worktree needs to be absolute path) |
+|         | - Fixed display of SupportedArchitectures                                              |
 | V0.7    | Fixed error where exit is not found                                                    |
 | V0.6    | Correctred handling of reGUIDED, added executables to repo (PyInstaller)               |
 | V0.5    | Corrected execution in Windows and Linux for Gen11 and Gen12 (no Gen12 Linux yet)      |
