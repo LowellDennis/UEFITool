@@ -119,9 +119,9 @@ class DSCParser(UEFIParser):
     ####################
 
     def macro_SUPPORTED_ARCHITECTURES(self, value):
-        SupportedArchitectures = value.upper().replace('"', '').split("|")
+        gbl.SupportedArchitectures = value.upper().replace('"', '').split("|")
         if Debug(SHOW_SPECIAL_HANDLERS):
-            print(f"{self.lineNumber}: Limiting architectires to {','.join(SupportedArchitectures)}")
+            print(f"{self.lineNumber}: Limiting architectires to {','.join(gbl.SupportedArchitectures)}")
 
     ######################
     # Directive handlers #
