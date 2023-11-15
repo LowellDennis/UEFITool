@@ -152,6 +152,7 @@ class PlatformInfo:
             if gbl.Worktree == old:
                 gbl.Error('Unable to locate base of UEFI platform tree ... exiting!')
                 sys.exit(1)
+        gbl.Worktree = os.path.abspath(gbl.Worktree)
 
     # Initializes the environment
     # returns nothing
