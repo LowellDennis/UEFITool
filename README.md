@@ -93,6 +93,7 @@ To generate these executables the following will need to be executed on Windows 
 ### Version History ###
 | Version | Explanation                                                                            |
 |---------|----------------------------------------------------------------------------------------|
+| V0.9    | Fixed problem where INFs in component section were not being processed completely      |
 | V0.8    | - Fixed failure when run from UEFI base directory (worktree needs to be absolute path) |
 |         | - Fixed display of SupportedArchitectures                                              |
 | V0.7    | Fixed error where exit is not found                                                    |
