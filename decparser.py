@@ -28,7 +28,7 @@ class DECParser(UEFIParser):
     ArgsHeaderFiles           = ('R',            'HEADERFILES',    ['path'])
     #                Section                  Debug                 regEx(s)               Arguments
     DECSections = { 'defines':               (SHOW_DEFINES,        'reDefines',            ArgsDefines),
-                    'guids':                 (SHOW_GUIDS,          'reGuids',              ArgsGuids),
+                    'guids':                 (SHOW_GUIDS,          'reGuidsDec',           ArgsGuids),
                     'includes':              (SHOW_INCLUDES,       'reIncludes',           ArgsIncludes),
                     'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',     ArgsLibraryClasses),
                     'pcdsdynamic':           (SHOW_PCDS,           'rePcdDef',             ArgsPcdsDynamic),
@@ -100,7 +100,7 @@ class DECParser(UEFIParser):
     # Handle a match in the [Guids] section
     # match: Results of regex match
     # returns nothing
-    def match_reGuids(self, match):
+    def match_reGuidsDec(self, match):
         name = match.group(1)
         guid = match.group(3)
         gbl.DefineGuid(name, guid, gbl.Guids, self.fileName, self.lineNumber)

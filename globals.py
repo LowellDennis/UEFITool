@@ -166,8 +166,8 @@ reDepex                = r'^' + reToEOL
 rePcdOvr              = fr'{reStart}({reVal}({reItem})?)?$'
 
 # Regular expression for matching lines with format "guid = value"
-# Groups 1=>guid, 3=>optional value
-reGuids                = r'^([^=\s]+)\s*(=\s*(' + reNext + r'))?$'
+# Groups 1=>guid, 4=>optional value, 6=>optional flagExpression
+reGuidsInf             = r'^([^=\s\|]+)\s*((=\s*(' + reNext + r'))|(\|\s*(' + reNext + ')))?$'
 
 # Regular expression for matching lines with format "include"
 # Groups 1=>include
@@ -202,7 +202,8 @@ reSources              = r'^' + re1to8Items
 
 # Regular expression for matching lines with format "guid = value"
 # Groups 1=>guid, 3=>optional value
-# reGuids same as above
+reGuidsDec             = r'^([^=\s]+)\s*(=\s*(' + reNext + r'))?$'
+
 
 # Regular expression for matching lines with format "include"
 # Groups 1=>include

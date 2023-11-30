@@ -18,7 +18,7 @@ class INFParser(UEFIParser):
     ArgsDepEx          = ('R',            'DEPEX',          ['depex'])
     ArgsFeaturePcd     = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
     ArgsFixedPcd       = ('RR O O',       'PCDS',           ['pcdtokenspaceguidname', 'pcdname', 'value', 'featureflagexpression'])
-    ArgsGuids          = ('R X',          'GUIDS',          ['guid'])
+    ArgsGuids          = ('R   O  O',     'GUIDS',          ['guid'])
     ArgsIncludes       = ('R',            'INCLUDES',       ['include'])
     ArgsLibraryClasses = ('R O',          'LIBRARYCLASSES', ['name', 'path'])
     ArgsPackages       = ('R',            'PACKAGES',       ['path'])
@@ -36,7 +36,7 @@ class INFParser(UEFIParser):
                     'depex':                 (SHOW_DEPEX,          'reDepex',              ArgsDepEx),
                     'featurepcd':            (SHOW_PCDS,           'rePcdOvr',             ArgsFeaturePcd),
                     'fixedpcd':              (SHOW_PCDS,           'rePcdOvr',             ArgsFixedPcd),
-                    'guids':                 (SHOW_GUIDS,          'reGuids',              ArgsGuids),
+                    'guids':                 (SHOW_GUIDS,          'reGuidsInf',           ArgsGuids),
                     'includes':              (SHOW_INCLUDES,       'reIncludes',           ArgsIncludes),
                     'libraryclasses':        (SHOW_LIBRARYCLASSES, 'reLibraryClasses',     ArgsLibraryClasses),
                     'packages':              (SHOW_PACKAGES,       'rePackages',           ArgsPackages),
@@ -112,7 +112,7 @@ class INFParser(UEFIParser):
     # Handle a match in the [Ppis] section for rePpis
     # match: Results of regex match
     # returns nothing
-    def match_reGuids(self, match):
+    def match_reGuidsInf(self, match):
         guid = match.group(1)
         gbl.ReferenceGuid(guid, gbl.Guids, self.fileName, self.lineNumber)
 
