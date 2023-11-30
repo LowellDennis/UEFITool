@@ -174,6 +174,10 @@ class DSCParser(UEFIParser):
         # Look for sub-element entry
         if match.group(3) and match.group(3) == '{':
             self.EnterSubElement()  # Defaults are fine
+        # Handle indicated file
+        file = match.group(1)
+        gbl.ReferenceSource(file, self.fileName, self.lineNumber)
+        gbl.INFs.append(file)
 
     # Handle a match in the [Defines] section for reDefines
     # match: Results of regex match
