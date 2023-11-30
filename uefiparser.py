@@ -109,7 +109,7 @@ class UEFIParser:
         # Remove any trailing comments
         line    = line.split('#')[0]
         line    = re.sub(r'[ \t]+;.+$', '', line)
-        line    = re.sub(r'//[a-zA-Z0-9\*_ \t]+$', '', line)
+        line    = re.sub(r'//[a-zA-Z0-9_\*: \t]+$', '', line)
         # Restore strings from placeholders
         for i, placeholder in enumerate(placeholders):
             line = line.replace(f'__STRING_LITERAL_{i}__', placeholder)
