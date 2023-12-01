@@ -376,12 +376,12 @@ class PlatformInfo:
                         lst.write(f'    VERSION_STRING: {this.version_string}\n')
                     if this.depex:
                         lst.write(f'    DepEx:          {this.depex}\n')
-                    dependency = self.__dependancies__(library)
+                    dependency = gbl.INFs[library].parser.LIBRARYCLASSES
                     if dependency:
                         lst.write(f'    Dependency:     ')
                         space = ''
                         for i, depends in enumerate(dependency):
-                            lst.write(f'{space}{i+1}. {depends}\n')
+                            lst.write(f'{space}{i+1}. {depends["name"]}\n')
                             space = '                    '
 
         # Generate PPI list (if indicated)
@@ -463,28 +463,6 @@ class PlatformInfo:
                 for item in list:
                     print(item)
                     list[item].Dump()
-
-    def __dependancies__(self, name):
-        def AddDependencies(name, dependency):
-            # Nothing to do if this library is already in dependency list
-            if not name in dependency:
-                # Make sure this is a defined library
-                if name in gbl.INFs:
-                    #  Add this library
-                    dependency.append(name)
-                    # Add all of the libraries upon which this one depends
-                    libraries = []
-                    for library in gbl.INFs[name].parser.LIBRARYCLASSES:
-                        name = library['name']
-                        # Unless dependency is alredy in the list
-                        if not name in dependency:
-                            # Make sure dependency is a defined library
-                            if name in gbl.INFs:
-                                AddDependencies(name, dependency)
-            return dependency
-        dependency = []
-        dependency = AddDependencies(name, dependency)
-        return dependency[1:]
 
     ##################
     # Public methods #
